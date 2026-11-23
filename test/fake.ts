@@ -31,7 +31,7 @@ export interface FakeCtx extends Ctx {
 
 export function fakeCtx(
   values: Record<string, unknown> = {},
-  opts: { offsetMin?: number; now?: string; weather?: WeatherApiLike } = {}
+  opts: { offsetMin?: number; now?: string; weather?: WeatherApiLike; resources?: Record<string, Record<string, unknown>> } = {}
 ): FakeCtx {
   const map = new Map(Object.entries(values))
   const listeners = new Map<string, Array<(v: unknown) => void>>()
@@ -59,6 +59,7 @@ export function fakeCtx(
     now: () => clock.now,
     weather: () => opts.weather,
     history: async () => undefined,
+    listResources: async (type) => opts.resources?.[type],
     publish(path, value) {
       ctx.published.push({ path, value })
     },

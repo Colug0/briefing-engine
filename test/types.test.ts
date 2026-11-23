@@ -6,7 +6,8 @@ import { positionContent } from '../src/contents/position.js'
 import { sunContent } from '../src/contents/sun.js'
 import { tankContent } from '../src/contents/tanks.js'
 import { tideContent } from '../src/contents/tides.js'
-import { summarize, weatherContent } from '../src/contents/weather.js'
+import { conditionOf, summarize, weatherContent } from '../src/contents/weather.js'
+import { tankKind } from '../src/contents/tanks.js'
 import { notificationDelivery, notificationPath } from '../src/deliveries/notification.js'
 import type { RunResult, WeatherData } from '../src/engine/types.js'
 import { createEdge, pathTrigger } from '../src/triggers/path.js'
@@ -138,7 +139,7 @@ describe('contents', () => {
     'environment.tide.heightNow': 0.8,
     'environment.tide.timeHigh': '2026-11-23T02:12:00Z',
     'environment.tide.heightHigh': 1.6,
-    'environment.tide.timeLow': '2026-11-22T20:00:00Z',
+    'environment.tide.timeLow': '2026-11-23T08:00:00Z',
     'environment.tide.heightLow': 0.3,
     'environment.water.temperature': 300.15
   }
@@ -147,14 +148,14 @@ describe('contents', () => {
     const ctx = fakeCtx(tree)
     const text = async (p: Promise<{ text: string }>) => (await p).text
     expect(await text(positionContent.fetch(ctx, {}))).toBe("Position: 33°51.4'S 151°12.9'E.")
-    expect(await text(batteryContent.fetch(ctx, { batteries: [] }))).toBe(
+    expect(await text(batteryContent.fetch(ctx, { batteries: [], lowPercent: 30, highPercent: 70 }))).toBe(
       'Batteries. House: 87%, 12.9 V, -4.2 A, 31.5 h left. Starter: 12.7 V.'
     )
     expect(await text(tankContent.fetch(ctx, { tanks: [] }))).toBe('Tanks. Fresh water: 75% (150 L). Diesel: 50%.')
     expect(await text(sunContent.fetch(ctx, { twilight: true }))).toBe('Sunrise 05:33, sunset 18:05 (dawn 05:10, dusk 18:28).')
     expect(await text(moonContent.fetch(ctx, {}))).toBe('Moon: waxing gibbous, 91% lit, rises 15:38, sets 02:56.')
     expect(await text(tideContent.fetch(ctx, {}))).toBe(
-      'Tide at Fort Denison: rising, now 0.8 m. Low water 08:00 (0.3 m), high water 14:12 (1.6 m).'
+      'Tide at Fort Denison: rising, now 0.8 m. High water 14:12 (1.6 m), low water 20:00 (0.3 m).'
     )
     expect(await text(pathContent.fetch(ctx, { path: 'environment.water.temperature', label: 'Water' }))).toBe('Water: 27.0 °C.')
     expect(await text(pathContent.fetch(ctx, { path: 'not.there' }))).toBe('not.there: no data.')
@@ -179,16 +180,55 @@ describe('contents', () => {
       'electrical.batteries.2997309160.voltage': 4.34,
       'electrical.batteries.houseBank.voltage': 12.9
     })
-    expect((await batteryContent.fetch(ctx, { batteries: [] })).text).toBe(
+    expect((await batteryContent.fetch(ctx, { batteries: [], lowPercent: 30, highPercent: 70 })).text).toBe(
       'Batteries. LiFePo4-L-F7: 13.1 V. 2997309160: 4.3 V. House bank: 12.9 V.'
     )
+  })
+
+  it('draws the tide day from the tides resource', async () => {
+    const tides = {
+      extremes: [
+        { time: '2026-11-22T22:09:44Z', level: 0.31, high: false, low: true },
+        { time: '2026-11-23T04:25:59Z', level: 2.18, high: true, low: false },
+        { time: '2026-11-23T10:52:58Z', level: 0.19, high: false, low: true },
+        { time: '2026-11-25T04:00:00Z', level: 2.2, high: true, low: false }
+      ]
+    }
+    const ctx = fakeCtx({ 'environment.tide.stationName': 'Funafuti' }, { now: '2026-11-23T00:00:00Z', resources: { tides } })
+    const block = await tideContent.fetch(ctx, {})
+    expect(block.text).toBe('Tide at Funafuti. High water 16:25 (2.2 m), low water 22:52 (0.2 m).')
+    expect(block.data).toMatchObject({
+      station: 'Funafuti',
+      points: [
+        { high: false, timeText: '10:09', level: 0.31 },
+        { high: true, timeText: '16:25' },
+        { high: false, timeText: '22:52' }
+      ]
+    })
+  })
+
+  it('gives the webapp what it draws', async () => {
+    const ctx = fakeCtx(tree)
+    expect((await batteryContent.fetch(ctx, { batteries: ['house'], lowPercent: 25, highPercent: 80 })).data).toEqual({
+      items: [{ id: 'house', name: 'House', soc: 0.874, socText: '87%', voltageText: '12.9 V', current: -4.2, currentText: '-4.2 A', remainingText: '31.5 h left' }],
+      low: 0.25,
+      high: 0.8
+    })
+    expect((await tankContent.fetch(ctx, { tanks: [] })).data).toMatchObject({
+      items: [
+        { id: 'freshWater.0', kind: 'water', level: 0.75 },
+        { id: 'fuel.main', name: 'Diesel', kind: 'fuel', level: 0.5 }
+      ]
+    })
+    expect((await moonContent.fetch(ctx, {})).data).toMatchObject({ phaseName: 'Waxing Gibbous', fraction: 0.91, southern: true })
+    expect(['fuel', 'freshWater', 'wasteWater', 'blackWater', 'liveWell', 'gas'].map(tankKind)).toEqual(['fuel', 'water', 'waste', 'waste', 'other', 'fuel'])
   })
 
   it('fails with a reason when the source is missing', async () => {
     const ctx = fakeCtx({})
     await expect(sunContent.fetch(ctx, { twilight: true })).rejects.toThrow('signalk-derived-data')
     await expect(tideContent.fetch(ctx, {})).rejects.toThrow('signalk-tides')
-    await expect(batteryContent.fetch(ctx, { batteries: [] })).rejects.toThrow('no batteries')
+    await expect(batteryContent.fetch(ctx, { batteries: [], lowPercent: 30, highPercent: 70 })).rejects.toThrow('no batteries')
     await expect(weatherContent.fetch(ctx, { days: 2, waves: true, warnings: true, description: false })).rejects.toThrow('no weather provider')
   })
 })
@@ -206,7 +246,7 @@ describe('weather', () => {
       point('2026-11-23T01:00:00Z', 302, 8, 2.4, 0.002),
       point('2026-11-23T13:00:00Z', 296, 6, 1.6) // Tue 01:00
     ]
-    const days = summarize(items, 720, 2, new Date('2026-11-22T19:30:00Z'))
+    const days = summarize([], items, 720, 2, new Date('2026-11-22T19:30:00Z'))
     expect(days.map((d) => d.date)).toEqual(['2026-11-23', '2026-11-24'])
     expect(days[0]).toMatchObject({ minTemperature: 297, maxTemperature: 302, windSpeed: 8, windDirection: 2.4, precipitation: 0.002 })
   })
@@ -224,6 +264,51 @@ describe('weather', () => {
     const block = await weatherContent.fetch(ctx, { days: 1, waves: true, warnings: true, description: false })
     expect(getForecasts.mock.calls.map((c) => c[1])).toEqual(['daily', 'point'])
     expect(block.text).toBe('Weather. Today: 23.9 to 28.9 °C, wind 15.0 kn from SE, gusts 21.0 kn, rain 3 mm. Warning: Strong wind warning.')
+  })
+
+  it('merges daily forecasts with hourly waves, as Open-Meteo sends them', async () => {
+    // Shapes as a real Open-Meteo provider answers: daily entries at UTC midnight, chance of rain in percent.
+    const daily = [
+      { date: '2026-11-24T00:00:00.000Z', type: 'daily', description: 'Rain showers: Slight', outside: { minTemperature: 300.75, maxTemperature: 302.75, precipitationProbability: 27 }, wind: { speedTrue: 6.32, directionTrue: 2.84, gust: 8.2 } },
+      { date: '2026-11-25T00:00:00.000Z', type: 'daily', description: 'Thunderstorm: Slight or moderate', outside: { minTemperature: 300, maxTemperature: 302 }, wind: { speedTrue: 9, directionTrue: 2.6, gust: 16 } }
+    ]
+    const points = [
+      { date: '2026-11-23T22:00:00.000Z', type: 'point', water: { waveSignificantHeight: 1.44 } },
+      { date: '2026-11-24T03:00:00.000Z', type: 'point', water: { waveSignificantHeight: 1.62 } }
+    ]
+    const getForecasts = vi.fn(async (_p: unknown, type: string) => (type === 'daily' ? daily : points))
+    const ctx = fakeCtx(
+      { 'navigation.position': { latitude: -8.6, longitude: 179.1 } },
+      { now: '2026-11-23T20:00:00Z', weather: { getForecasts } }
+    )
+    const block = await weatherContent.fetch(ctx, { days: 2, waves: true, warnings: false, description: true })
+    expect(block.text).toBe(
+      'Weather. Today: Rain showers: Slight, 27.6 to 29.6 °C, wind 12.3 kn from SSE, gusts 15.9 kn, rain 27%, waves 1.6 m. ' +
+        'Tomorrow: Thunderstorm: Slight or moderate, 26.9 to 28.9 °C, wind 17.5 kn from SSE, gusts 31.1 kn.'
+    )
+    expect(block.data).toMatchObject({
+      days: [
+        { name: 'Today', condition: 'showers', windy: false },
+        { name: 'Tomorrow', condition: 'thunder', windy: true }
+      ],
+      warnings: []
+    })
+  })
+
+  it('keeps a daily entry on its own date west of Greenwich', () => {
+    const daily = [{ date: '2026-11-24T00:00:00.000Z', type: 'daily', description: 'Clear sky' }]
+    // 08:00 on 24 Nov at UTC-10 is 18:00 UTC.
+    expect(summarize(daily, [], -600, 1, new Date('2026-11-24T18:00:00Z')).map((d) => d.date)).toEqual(['2026-11-24'])
+  })
+
+  it('picks a symbol from the text, else from the numbers', () => {
+    expect(conditionOf({ date: '', description: 'Drizzle: Light' })).toBe('drizzle')
+    expect(conditionOf({ date: '', description: 'Overcast' })).toBe('cloudy')
+    expect(conditionOf({ date: '', description: 'Mainly clear' })).toBe('clear')
+    expect(conditionOf({ date: '', description: 'Fog' })).toBe('fog')
+    expect(conditionOf({ date: '', cloudCover: 0.86 })).toBe('cloudy')
+    expect(conditionOf({ date: '', rainChance: 0.6 })).toBe('rain')
+    expect(conditionOf({ date: '' })).toBe('clear')
   })
 
   it("leaves out the provider's description unless asked", async () => {

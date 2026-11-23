@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { Value } from 'typebox/value'
 import type { Registry } from './registry.js'
 import type { BlockResult, Briefing, Ctx, DeliveryResult, FireReason, RunResult } from './types.js'
 
@@ -35,7 +36,9 @@ export async function runBriefing(
       const type = registry.contents.get(part.type)
       if (!type) return { type: part.type, title: part.type, text: 'Unknown content type.', error: 'unknown type' }
       try {
-        const block = await withTimeout(type.fetch(ctx, part.config), options.contentTimeoutMs)
+        // Settings added in a later version are missing from briefings saved before it.
+        const config = Value.Default(type.schema as never, structuredClone(part.config ?? {})) as Record<string, unknown>
+        const block = await withTimeout(type.fetch(ctx, config), options.contentTimeoutMs)
         return { type: part.type, ...block }
       } catch (error) {
         ctx.log.debug(`${briefing.name}: ${type.title} failed: ${message(error)}`)
@@ -60,7 +63,7 @@ export async function runBriefing(
     if (!type) result.error = 'unknown type'
     else {
       try {
-        await type.deliver(ctx, part.config, run)
+        await type.deliver(ctx, Value.Default(type.schema as never, structuredClone(part.config ?? {})) as Record<string, unknown>, run)
         result.ok = true
       } catch (error) {
         result.error = message(error)

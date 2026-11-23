@@ -1,19 +1,24 @@
 import Type, { type Static } from 'typebox'
 import type { ContentType, Ctx } from '../engine/types.js'
-import { joinParts, label, shown } from './helpers.js'
+import type { BatteryData, BatteryItem } from './data.js'
+import { isNum, joinParts, label, shown } from './helpers.js'
 
 const BatterySchema = Type.Object({
   batteries: Type.Array(Type.String(), {
     title: 'Batteries',
     description: 'Ids below electrical.batteries, e.g. house. Empty = all.',
     default: []
-  })
+  }),
+  lowPercent: Type.Integer({ title: 'Low below (%)', description: 'Shown in red below this state of charge.', default: 30, minimum: 0, maximum: 100 }),
+  highPercent: Type.Integer({ title: 'Good from (%)', description: 'Shown in green from this state of charge.', default: 70, minimum: 0, maximum: 100 })
 })
 
 function nameOf(ctx: Ctx, base: string, id: string): string {
   const name = ctx.getSelf(`${base}.${id}.name`)
   return typeof name === 'string' && name.trim() ? name.trim() : label(id)
 }
+
+const num = (v: unknown): number | undefined => (isNum(v) ? v : undefined)
 
 export const batteryContent: ContentType<Static<typeof BatterySchema>> = {
   id: 'battery',
@@ -22,22 +27,25 @@ export const batteryContent: ContentType<Static<typeof BatterySchema>> = {
   schema: BatterySchema,
   async fetch(ctx, config) {
     const ids = config.batteries.length ? config.batteries : ctx.childKeys('electrical.batteries')
-    const lines: string[] = []
-    const data: Record<string, unknown> = {}
-    for (const id of ids) {
+    const items: BatteryItem[] = ids.map((id) => {
       const b = `electrical.batteries.${id}`
-      const soc = shown(ctx, `${b}.capacity.stateOfCharge`)
       const left = shown(ctx, `${b}.capacity.timeRemaining`)
-      const parts = joinParts([soc, shown(ctx, `${b}.voltage`), shown(ctx, `${b}.current`), left && `${left} left`])
-      data[id] = {
-        stateOfCharge: ctx.getSelf(`${b}.capacity.stateOfCharge`),
-        voltage: ctx.getSelf(`${b}.voltage`),
-        current: ctx.getSelf(`${b}.current`),
-        timeRemaining: ctx.getSelf(`${b}.capacity.timeRemaining`)
+      return {
+        id,
+        name: nameOf(ctx, 'electrical.batteries', id),
+        soc: num(ctx.getSelf(`${b}.capacity.stateOfCharge`)),
+        socText: shown(ctx, `${b}.capacity.stateOfCharge`),
+        voltageText: shown(ctx, `${b}.voltage`),
+        current: num(ctx.getSelf(`${b}.current`)),
+        currentText: shown(ctx, `${b}.current`),
+        remainingText: left && `${left} left`
       }
-      lines.push(`${nameOf(ctx, 'electrical.batteries', id)}: ${parts || 'no data'}`)
-    }
-    if (!lines.length) throw new Error('no batteries in Signal K')
+    })
+    if (!items.length) throw new Error('no batteries in Signal K')
+    const lines = items.map(
+      (i) => `${i.name}: ${joinParts([i.socText, i.voltageText, i.currentText, i.remainingText]) || 'no data'}`
+    )
+    const data: BatteryData = { items, low: config.lowPercent / 100, high: config.highPercent / 100 }
     return { title: 'Batteries', text: `Batteries. ${lines.join('. ')}.`, data }
   }
 }

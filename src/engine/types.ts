@@ -39,6 +39,8 @@ export interface Ctx {
   /** In-process server APIs; undefined when the server or a provider does not offer them. */
   weather(): WeatherApiLike | undefined
   history(): Promise<HistoryApiLike | undefined>
+  /** Resources of a type from the server's resources API, or undefined when there is no provider. */
+  listResources(type: string, params?: Record<string, unknown>): Promise<Record<string, unknown> | undefined>
   /** Send a value for a path below vessels.self into the data model as this plugin. */
   publish(path: string, value: unknown): void
   /** Listen to a path below vessels.self; returns an unsubscribe function. */
@@ -65,6 +67,7 @@ export interface WeatherApiLike {
 
 export interface WeatherData {
   date: string
+  type?: string
   description?: string
   outside?: {
     minTemperature?: number
@@ -74,6 +77,7 @@ export interface WeatherData {
     precipitationVolume?: number
     cloudCover?: number
     relativeHumidity?: number
+    precipitationProbability?: number
   }
   wind?: { speedTrue?: number; directionTrue?: number; gust?: number }
   water?: { waveSignificantHeight?: number; swellHeight?: number; temperature?: number }

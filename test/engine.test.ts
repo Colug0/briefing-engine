@@ -157,6 +157,26 @@ describe('runner', () => {
   })
 })
 
+describe('runner defaults', () => {
+  it('fills settings a briefing saved by an older version lacks', async () => {
+    const seen: unknown[] = []
+    const withDefaults: ContentType = {
+      id: 'd',
+      title: 'D',
+      description: '',
+      schema: Type.Object({ added: Type.Integer({ default: 70 }) }),
+      fetch: async (_ctx, config) => {
+        seen.push(config)
+        return { title: 'D', text: 'ok' }
+      }
+    }
+    const registry = new Registry({ triggers: [], contents: [withDefaults], deliveries: [] })
+    const briefing: Briefing = { id: 'b', name: 'B', enabled: true, triggers: [], contents: [{ type: 'd', config: {} }], deliveries: [] }
+    await runBriefing(fakeCtx(), registry, briefing, 'test', { contentTimeoutMs: 1000 }, () => {})
+    expect(seen).toEqual([{ added: 70 }])
+  })
+})
+
 describe('registry', () => {
   it('fills defaults and reports problems', () => {
     const registry = createRegistry()
