@@ -8,17 +8,32 @@ export function shown(ctx: Ctx, path: string): string | undefined {
   return isNum(v) ? ctx.display(path, v)?.text : undefined
 }
 
-/** Readable name for a path key: "freshWater" → "Fresh water", "house" → "House". */
+/**
+ * Readable name for a path key: "freshWater" → "Fresh water", "house" →
+ * "House". Ids that are not plain words ("LiFePo4-L-F7", "2997309160") stay
+ * as they are, since splitting them only garbles them.
+ */
 export function label(key: string): string {
-  const words = key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[-_]/g, ' ').toLowerCase()
+  if (!/^[a-z]+(?:[A-Z][a-z]+)*$/.test(key)) return key
+  const words = key.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase()
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
-/** Ship time of an ISO timestamp held in a path, or undefined. */
-export function timeAt(ctx: Ctx, path: string): string | undefined {
+/**
+ * Milliseconds of a timestamp held in a path. Over REST timestamps are
+ * strings, but a plugin can put a Date into the tree directly
+ * (signalk-derived-data does for sun and moon times).
+ */
+export function epochAt(ctx: Ctx, path: string): number | undefined {
   const v = ctx.getSelf(path)
-  if (typeof v !== 'string' || Number.isNaN(Date.parse(v))) return undefined
-  return ctx.time(v)
+  const ms = v instanceof Date ? v.getTime() : typeof v === 'string' ? Date.parse(v) : Number.NaN
+  return Number.isNaN(ms) ? undefined : ms
+}
+
+/** Ship time of a timestamp held in a path, or undefined. */
+export function timeAt(ctx: Ctx, path: string): string | undefined {
+  const ms = epochAt(ctx, path)
+  return ms === undefined ? undefined : ctx.time(new Date(ms))
 }
 
 export function joinParts(parts: Array<string | undefined>): string {

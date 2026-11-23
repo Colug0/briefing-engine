@@ -1,6 +1,6 @@
 import Type from 'typebox'
 import type { ContentType } from '../engine/types.js'
-import { joinParts, shown, timeAt } from './helpers.js'
+import { epochAt, joinParts, shown, timeAt } from './helpers.js'
 
 const TIDE = 'environment.tide'
 
@@ -19,11 +19,11 @@ export const tideContent: ContentType<Record<string, never>> = {
     const at = typeof station === 'string' && station ? ` at ${station}` : ''
     const head = joinParts([typeof state === 'string' ? state : undefined, now && `now ${now}`])
     const extremes = [
-      { kind: 'High', time: high, iso: ctx.getSelf(`${TIDE}.timeHigh`), height: shown(ctx, `${TIDE}.heightHigh`) },
-      { kind: 'low', time: low, iso: ctx.getSelf(`${TIDE}.timeLow`), height: shown(ctx, `${TIDE}.heightLow`) }
+      { kind: 'High', time: high, at: epochAt(ctx, `${TIDE}.timeHigh`) ?? 0, height: shown(ctx, `${TIDE}.heightHigh`) },
+      { kind: 'low', time: low, at: epochAt(ctx, `${TIDE}.timeLow`) ?? 0, height: shown(ctx, `${TIDE}.heightLow`) }
     ]
       .filter((e) => e.time)
-      .sort((a, b) => Date.parse(String(a.iso)) - Date.parse(String(b.iso)))
+      .sort((a, b) => a.at - b.at)
       .map((e, i) => `${i === 0 ? e.kind.charAt(0).toUpperCase() + e.kind.slice(1).toLowerCase() : e.kind.toLowerCase()} water ${e.time}${e.height ? ` (${e.height})` : ''}`)
     return {
       title: 'Tides',
