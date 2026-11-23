@@ -91,7 +91,7 @@ function PartEditor({
 }
 
 export function Editor({ id }: { id?: string }) {
-  const { briefings, types, act, go } = useStore()
+  const { briefings, types, act, go, error } = useStore()
   const { draft, forId, set } = useDraft()
 
   useEffect(() => {
@@ -160,6 +160,8 @@ export function Editor({ id }: { id?: string }) {
         </fieldset>
       ))}
 
+      {/* The page-wide message is at the top, out of sight after scrolling down to Save. */}
+      {error && <p className="error">{error}</p>}
       <div className="actions">
         <button className="primary" onClick={() => void save()} disabled={!draft.name.trim()}>
           Save

@@ -7,7 +7,12 @@ import { isNum, joinParts, shownAs } from './helpers.js'
 const Schema = Type.Object({
   days: Type.Integer({ title: 'Days', description: 'Today and the following days', default: 2, minimum: 1, maximum: 7 }),
   waves: Type.Boolean({ title: 'Include waves', default: true }),
-  warnings: Type.Boolean({ title: 'Include weather warnings', default: true })
+  warnings: Type.Boolean({ title: 'Include weather warnings', default: true }),
+  description: Type.Boolean({
+    title: "Include the provider's description",
+    description: 'Some providers put a weather text here, others model and run details.',
+    default: false
+  })
 })
 type Config = Static<typeof Schema>
 
@@ -84,7 +89,7 @@ function dayName(date: string, today: string, offsetMin: number, ctx: Ctx): stri
   return ctx.date(new Date(Date.parse(`${date}T12:00:00Z`) - offsetMin * 60_000))
 }
 
-export function describeDay(ctx: Ctx, d: DaySummary, name: string, waves: boolean): string {
+export function describeDay(ctx: Ctx, d: DaySummary, name: string, waves: boolean, description = false): string {
   const lo = shownAs(ctx, UNIT.temperature, d.minTemperature)
   const hi = shownAs(ctx, UNIT.temperature, d.maxTemperature)
   const temp = lo && hi && lo !== hi ? `${lo.replace(/ ?°.*$/, '')} to ${hi}` : (hi ?? lo)
@@ -95,7 +100,7 @@ export function describeDay(ctx: Ctx, d: DaySummary, name: string, waves: boolea
   const rain = isNum(d.precipitation) && d.precipitation * 1000 >= 0.5 ? `rain ${Math.round(d.precipitation * 1000)} mm` : undefined
   const wave = waves && isNum(d.waveHeight) ? `waves ${d.waveHeight.toFixed(1)} m` : undefined
   const parts = joinParts([
-    d.description,
+    description ? d.description : undefined,
     temp,
     wind && `wind ${wind}${from}`,
     gust && `gusts ${gust}`,
@@ -123,7 +128,7 @@ export const weatherContent: ContentType<Config> = {
     const summaries = summarize(items ?? [], offset, config.days, now)
     if (!summaries.length) throw new Error('the provider returned no forecast')
     const today = localParts(now, offset).isoDate
-    const lines = summaries.map((d) => describeDay(ctx, d, dayName(d.date, today, offset, ctx), config.waves))
+    const lines = summaries.map((d) => describeDay(ctx, d, dayName(d.date, today, offset, ctx), config.waves, config.description))
 
     if (config.warnings && api.getWarnings) {
       try {

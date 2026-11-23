@@ -160,12 +160,36 @@ describe('contents', () => {
     expect(await text(pathContent.fetch(ctx, { path: 'not.there' }))).toBe('not.there: no data.')
   })
 
+  it('reads timestamps that a plugin put into the tree as Date objects', async () => {
+    // signalk-derived-data publishes sun and moon times as Dates; only REST turns them into strings.
+    const ctx = fakeCtx({
+      'environment.sunlight.times.sunrise': new Date('2026-11-23T17:33:31Z'),
+      'environment.sunlight.times.sunset': new Date('2026-11-24T06:06:50Z'),
+      'environment.moon.phaseName': 'Full Moon',
+      'environment.moon.times.rise': new Date('2026-11-24T05:39:07Z'),
+      'environment.moon.times.set': null
+    })
+    expect((await sunContent.fetch(ctx, { twilight: true })).text).toBe('Sunrise 05:33, sunset 18:06.')
+    expect((await moonContent.fetch(ctx, {})).text).toBe('Moon: full moon, rises 17:39.')
+  })
+
+  it('keeps ids that are not plain words', async () => {
+    const ctx = fakeCtx({
+      'electrical.batteries.LiFePo4-L-F7.voltage': 13.1,
+      'electrical.batteries.2997309160.voltage': 4.34,
+      'electrical.batteries.houseBank.voltage': 12.9
+    })
+    expect((await batteryContent.fetch(ctx, { batteries: [] })).text).toBe(
+      'Batteries. LiFePo4-L-F7: 13.1 V. 2997309160: 4.3 V. House bank: 12.9 V.'
+    )
+  })
+
   it('fails with a reason when the source is missing', async () => {
     const ctx = fakeCtx({})
     await expect(sunContent.fetch(ctx, { twilight: true })).rejects.toThrow('signalk-derived-data')
     await expect(tideContent.fetch(ctx, {})).rejects.toThrow('signalk-tides')
     await expect(batteryContent.fetch(ctx, { batteries: [] })).rejects.toThrow('no batteries')
-    await expect(weatherContent.fetch(ctx, { days: 2, waves: true, warnings: true })).rejects.toThrow('no weather provider')
+    await expect(weatherContent.fetch(ctx, { days: 2, waves: true, warnings: true, description: false })).rejects.toThrow('no weather provider')
   })
 })
 
@@ -197,9 +221,21 @@ describe('weather', () => {
       { 'navigation.position': { latitude: -33.86, longitude: 151.22 } },
       { now: '2026-11-22T19:30:00Z', weather: { getForecasts, getWarnings: async () => [{ details: 'Strong wind warning' }] } }
     )
-    const block = await weatherContent.fetch(ctx, { days: 1, waves: true, warnings: true })
+    const block = await weatherContent.fetch(ctx, { days: 1, waves: true, warnings: true, description: false })
     expect(getForecasts.mock.calls.map((c) => c[1])).toEqual(['daily', 'point'])
     expect(block.text).toBe('Weather. Today: 23.9 to 28.9 °C, wind 15.0 kn from SE, gusts 21.0 kn, rain 3 mm. Warning: Strong wind warning.')
+  })
+
+  it("leaves out the provider's description unless asked", async () => {
+    const getForecasts = vi.fn(async () => [{ ...point('2026-11-22T20:00:00Z', 297, 5, 2.36), description: 'Model run 12Z' }])
+    const ctx = fakeCtx(
+      { 'navigation.position': { latitude: -33.86, longitude: 151.22 } },
+      { now: '2026-11-22T19:30:00Z', weather: { getForecasts } }
+    )
+    const off = await weatherContent.fetch(ctx, { days: 1, waves: false, warnings: false, description: false })
+    expect(off.text).not.toContain('Model run')
+    const on = await weatherContent.fetch(ctx, { days: 1, waves: false, warnings: false, description: true })
+    expect(on.text).toContain('Today: Model run 12Z, ')
   })
 })
 
