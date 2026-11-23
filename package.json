@@ -1,0 +1,72 @@
+{
+  "name": "briefing-engine",
+  "version": "0.0.0",
+  "description": "Build your own boat briefings for Signal K: triggers, content blocks from Signal K and the internet, and deliveries to a webapp, ntfy or speech",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "public"
+  ],
+  "scripts": {
+    "build": "npm run build:plugin && npm run build:web",
+    "build:plugin": "tsc -p tsconfig.build.json",
+    "build:web": "vite build",
+    "dev:web": "vite",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p web/tsconfig.json",
+    "test": "vitest run",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "signalk-node-server-plugin",
+    "signalk-webapp",
+    "signalk-category-utility",
+    "briefing",
+    "weather",
+    "tides",
+    "notifications"
+  ],
+  "author": "Thomas Christoffel",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Colug0/briefing-engine.git"
+  },
+  "homepage": "https://github.com/Colug0/briefing-engine#readme",
+  "bugs": {
+    "url": "https://github.com/Colug0/briefing-engine/issues"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "signalk": {
+    "displayName": "Briefing Engine",
+    "appIcon": "./icon.svg",
+    "recommends": [
+      "@meri-imperiumi/signalk-internet",
+      "signalk-derived-data",
+      "signalk-tides"
+    ]
+  },
+  "dependencies": {
+    "typebox": "^1.4.7"
+  },
+  "devDependencies": {
+    "@rjsf/core": "^6.11.1",
+    "@rjsf/utils": "^6.11.1",
+    "@rjsf/validator-ajv8": "^6.11.1",
+    "@signalk/server-api": "^2.37.0",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.8",
+    "vite-plugin-checker": "^1.0.0",
+    "vitest": "^5.1.1",
+    "zustand": "^5.1.0"
+  }
+}
