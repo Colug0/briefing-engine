@@ -193,6 +193,30 @@ export function shortSystem(text: string): string {
     .join('')
 }
 
+/**
+ * One weather system as a push line. A paragraph can describe more than one
+ * system, so the line shows the sentence nearest to the vessel, with that
+ * sentence's own distance; without a position, the first sentence.
+ */
+export function systemLine(text: string, vessel: Position | undefined): string {
+  const sentences = text.split(/(?<=\.)\s+/)
+  let pick = sentences[0] ?? text
+  let best: { pos: Position; nm: number } | undefined
+  if (vessel) {
+    for (const s of sentences) {
+      const pos = nearestPosition(s, vessel)
+      if (!pos) continue
+      const nm = distanceNm(vessel, pos)
+      if (!best || nm < best.nm) {
+        best = { pos, nm }
+        pick = s
+      }
+    }
+  }
+  const short = shortSystem(pick)
+  return vessel && best ? `${rangeText(vessel, best.pos)} · ${short}` : short
+}
+
 export function parseBulletin(text: string, vessel: Position | undefined, radiusNm: number): ParsedBulletin {
   const paras = paragraphs(text)
   const issued = issuedAt(text)
@@ -247,7 +271,7 @@ export const bulletinContent: ContentType<Config> = {
       summary: `${title}${parsed.issued ? ` · issued ${parsed.issued}` : ''}`,
       items: [
         ...(parsed.warnings.length ? parsed.warnings.map((w) => `⚠️ ${w}`) : ['No warnings']),
-        ...parsed.systems.map((s) => (s.distanceText ? `${s.distanceText} · ${shortSystem(s.text)}` : shortSystem(s.text)))
+        ...parsed.systems.map((s) => systemLine(s.text, vessel))
       ],
       data,
       severity: parsed.severity,
