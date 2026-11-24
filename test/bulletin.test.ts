@@ -87,6 +87,19 @@ describe('marine bulletin', () => {
     expect(parseBulletin('Part 1 - WARNINGS\nWARNINGS IN FORCE: NIL\n\nPart 2 - Situation', boat, 600).warnings).toEqual([])
   })
 
+  it('keeps a warning with its body and its references', () => {
+    const colon = parseBulletin('GALE WARNING:\nNORTHWEST WINDS 35 KNOTS. STORM FORCE WINDS EXPECTED LATER.', boat, 600)
+    expect(colon.warnings).toEqual(['GALE WARNING: NORTHWEST WINDS 35 KNOTS. STORM FORCE WINDS EXPECTED LATER.'])
+    expect(colon.severity).toBe('alarm')
+    const issued = parseBulletin('GALE WARNING 12 ISSUED AT 0600 UTC\nNORTHWEST WINDS 35 KNOTS. STORM FORCE WINDS EXPECTED LATER.', boat, 600)
+    expect(issued.warnings).toHaveLength(1)
+    expect(issued.severity).toBe('alarm')
+    const ref = parseBulletin('A STRONG WIND WARNING REMAINS IN FORCE FOR ALL FIJI WATERS; SEE WARNING 12 FOR DETAILS.', boat, 600)
+    expect(ref.warnings).toHaveLength(1)
+    expect(parseBulletin('NO STORM WARNING FOR AREA NEAR 10S 179E.', boat, 600)).toMatchObject({ warnings: [], systems: [] })
+    expect(parseBulletin('NO STORM WARNING FOR AREA NEAR 10S 179E.', boat, 600).severity).toBeUndefined()
+  })
+
   it('splits paragraphs on blank lines and indented lines', () => {
     expect(paragraphs('A\nB\n\n C\nD\n')).toEqual(['A B', 'C D'])
   })

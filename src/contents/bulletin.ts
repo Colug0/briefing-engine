@@ -86,11 +86,14 @@ export function paragraphs(text: string): string[] {
       return
     }
     cur.push(line)
-    // "ISSUED FROM ..." and its "AT 8:30AM ON ..." line end the heading.
-    if (/\b(issued|émis)\b/i.test(line)) inIssued = true
+    // "ISSUED FROM ..." and its "AT 8:30AM ON ..." line end the heading;
+    // "GALE WARNING 12 ISSUED AT ..." is a warning, and its body follows.
+    if (/\b(issued|émis)\b/i.test(line) && !WARNING.test(line)) inIssued = true
     const issuedEnds = inIssued && !/^\s*(at|on|for|valid|le|à)\b/i.test(next) && !/\b(issued|émis)\b/i.test(next)
     if (issuedEnds) inIssued = false
-    if (issuedEnds || /:\s*$/.test(line) || (/[.]\s*$/.test(line) && SECTION_START.test(next))) flush()
+    // A heading such as "SITUATION:" stands alone; "GALE WARNING:" keeps its body.
+    const heading = /:\s*$/.test(line) && !WARNING.test(line)
+    if (issuedEnds || heading || (/[.]\s*$/.test(line) && SECTION_START.test(next))) flush()
   })
   flush()
   return out.filter(Boolean)
@@ -127,8 +130,8 @@ const PART_ONE = /^parts?\s*1\b\s*[-:.]?\s*/i
 /** "Part 1 Warnings", "PART 1 : WARNING NIL.", "PART 1 : STORM WARNING 042 …" */
 const isWarningsPart = (p: string) => PART_ONE.test(p) && /warning/i.test(p.split('.')[0] ?? '')
 const BOILERPLATE = /^refer to (the )?latest warnings?\b/i
-/** A sentence that only mentions a warning, as in "gales as in warning 337" or "outside of warning area". */
-const MENTION = /\b(as in|outside( of)?|inside( of)?|refer to|see)\b[^.]*\bwarning/i
+/** Words that only refer to a warning, as in "gales as in warning 337" or "outside of warning area". */
+const MENTION = /\b(as in|outside( of)?|inside( of)?|refer to|see)\b[^.;,]*?\bwarnings?\b[^.;,]*/gi
 
 /**
  * Warnings, kept whole. Services that number their parts list warnings in
@@ -154,7 +157,8 @@ export function findWarnings(paras: string[]): { warnings: string[]; section: Se
   }
   for (const p of paras) {
     const first = p.split(/(?<=[.:])\s/)[0] ?? p
-    if (WARNING.test(first) && !MENTION.test(first) && !NO_WARNING.test(p)) warnings.push(p)
+    // A warning counts when it is still there with the references taken out.
+    if (WARNING.test(first.replace(MENTION, '')) && !NO_WARNING.test(p)) warnings.push(p)
   }
   return { warnings, section }
 }
@@ -166,7 +170,8 @@ export function parseBulletin(text: string, vessel: Position | undefined, radius
   const systems: BulletinSystem[] = []
   let severeNearby = false
   for (const [i, p] of paras.entries()) {
-    if (section.has(i) || warnings.includes(p)) continue
+    // A paragraph saying there is no warning is no weather system either.
+    if (section.has(i) || warnings.includes(p) || NO_WARNING.test(p)) continue
     const tropical = TROPICAL.test(p)
     const pos = vessel ? nearestPosition(p, vessel) : findPositions(p)[0]
     if (!pos && !tropical) continue
