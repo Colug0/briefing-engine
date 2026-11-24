@@ -7,7 +7,9 @@ runs, **what** it says and **where** it goes.
   wait for an internet connection, unlimited or metered; or any Signal K path,
   e.g. a switch or a button. Every briefing can also be run by hand.
 - **Content:** position, batteries, tanks, sun, moon, tides, weather forecast,
-  and the value of any Signal K path. Each block is optional and configurable.
+  official marine weather bulletins (GMDSS, e.g. Fiji Met, MetService NZ, BoM),
+  tropical cyclones near the boat (GDACS), and the value of any Signal K path.
+  Each block is optional and configurable.
 - **Deliveries:** the plugin's own webapp, a Signal K notification
   "Briefing … ready", and ntfy push to a server on board (sent at once) and/or
   a server on the internet (sent once there is a connection).
@@ -43,6 +45,13 @@ Weather. Today: 23.9 to 28.8 °C, wind 15.0 kn from SE, gusts 21.0 kn, rain 2 mm
 
 Without one of them, the matching block says it is not available and the rest
 of the briefing still runs.
+
+Marine bulletins come from NOAA's TGFTP mirror of the GTS and tropical cyclones
+from [GDACS](https://www.gdacs.org); both are fetched when there is internet
+and shown from the last answer, with its age, when there is not. A warning in a
+bulletin or an orange GDACS alert marks the briefing as a warning. A storm
+closer than 300 nm, a red GDACS alert, or storm or hurricane force in a warning
+or a nearby tropical system marks it as an alarm.
 
 ## Ship time and units
 
