@@ -92,6 +92,8 @@ export interface TideData {
   station?: string
   state?: string
   nowText?: string
+  /** Height now in metres, to start the curve when no extreme lies before now. */
+  nowLevel?: number
   /** Extremes around now, oldest first, for the curve. */
   points: TidePoint[]
 }

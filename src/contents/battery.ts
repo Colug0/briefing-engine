@@ -26,7 +26,10 @@ export const batteryContent: ContentType<Static<typeof BatterySchema>> = {
   description: 'State of charge, voltage, current and time remaining.',
   schema: BatterySchema,
   async fetch(ctx, config) {
-    const ids = config.batteries.length ? config.batteries : ctx.childKeys('electrical.batteries')
+    // Accept ids written with their full path too (electrical.batteries.house).
+    const ids = config.batteries.length
+      ? config.batteries.map((id) => id.trim().replace(/^(vessels\.self\.)?electrical\.batteries\./, ''))
+      : ctx.childKeys('electrical.batteries')
     const items: BatteryItem[] = ids.map((id) => {
       const b = `electrical.batteries.${id}`
       const left = shown(ctx, `${b}.capacity.timeRemaining`)
