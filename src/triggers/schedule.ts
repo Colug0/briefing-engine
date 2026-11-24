@@ -1,8 +1,9 @@
 import Type, { type Static } from 'typebox'
 import { localParts, parseClock, WEEKDAYS, type Weekday } from '../engine/time.js'
+import { INTERNET_PATH, internetState, type InternetState } from '../engine/internet.js'
 import type { TriggerType } from '../engine/types.js'
 
-export const INTERNET_PATH = 'network.internet.state'
+export { INTERNET_PATH }
 
 const Schema = Type.Object({
   time: Type.String({ title: 'Time (ship time, HH:MM)', default: '07:00', pattern: '^\\d{1,2}:\\d{2}$' }),
@@ -19,12 +20,6 @@ const Schema = Type.Object({
   })
 })
 type Config = Static<typeof Schema>
-
-export type InternetState = 'online' | 'metered' | 'offline' | 'captive' | 'unknown'
-
-export function internetState(value: unknown): InternetState {
-  return value === 'online' || value === 'metered' || value === 'offline' || value === 'captive' ? value : 'unknown'
-}
 
 /** Whether the connection allows running now. An unknown state never blocks. */
 export function connectionOk(wanted: Config['internet'], state: InternetState): boolean {

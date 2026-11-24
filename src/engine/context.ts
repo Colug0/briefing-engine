@@ -1,4 +1,6 @@
 import type { ServerAPI } from '@signalk/server-api'
+import type { Cache } from './cache.js'
+import { INTERNET_PATH, internetState, mayUseInternet } from './internet.js'
 import { formatDate, formatTime, offsetMinutes } from './time.js'
 import type { Ctx, HistoryApiLike, StateStore, WeatherApiLike } from './types.js'
 import { fallbackDisplay, toDisplayValue } from './units.js'
@@ -23,6 +25,9 @@ interface NewerServer {
 export interface ContextOptions {
   /** Prefer this source of the ship's timezone offset, e.g. the id of a timezone plugin. */
   timezoneSource?: string
+  cache?: Cache
+  /** How old remembered internet data may be when shown offline. */
+  cacheMaxAgeMs?: number
 }
 
 /**
@@ -90,6 +95,33 @@ export function createContext(app: ServerAPI, pluginId: string, state: StateStor
         return await newer.resourcesApi.listResources(type, params)
       } catch {
         return undefined
+      }
+    },
+    internet: () => internetState(ctx.getSelf(INTERNET_PATH)),
+    http(url, init = {}) {
+      const { timeoutMs = 15_000, ...rest } = init
+      return fetch(url, { ...rest, signal: rest.signal ?? AbortSignal.timeout(timeoutMs) })
+    },
+    async cached(key, load) {
+      const maxAge = options.cacheMaxAgeMs ?? 24 * 3_600_000
+      const remembered = () => {
+        const hit = options.cache?.get(key)
+        return hit && ctx.now().getTime() - hit.at.getTime() <= maxAge ? hit : undefined
+      }
+      if (!mayUseInternet(ctx.internet())) {
+        const hit = remembered()
+        if (!hit) throw new Error('offline and no recent data')
+        return { value: hit.value as never, at: hit.at, fromCache: true }
+      }
+      try {
+        const value = await load()
+        const at = ctx.now()
+        options.cache?.set(key, value, at)
+        return { value, at, fromCache: false }
+      } catch (error) {
+        const hit = remembered()
+        if (!hit) throw error
+        return { value: hit.value as never, at: hit.at, fromCache: true }
       }
     },
     publish(path, value) {

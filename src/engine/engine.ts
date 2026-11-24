@@ -13,6 +13,7 @@ export interface EngineOptions {
  */
 export class Engine {
   private stops: Array<() => void> = []
+  private services: Array<() => void> = []
   private running = new Set<string>()
 
   constructor(
@@ -21,6 +22,18 @@ export class Engine {
     private readonly store: Store,
     private readonly options: EngineOptions
   ) {}
+
+  /** Start the background work of delivery types, once per plugin start. */
+  startServices(): void {
+    for (const type of this.registry.deliveries.values()) {
+      if (!type.start) continue
+      try {
+        this.services.push(type.start(this.ctx))
+      } catch (error) {
+        this.ctx.log.error(`delivery ${type.title} did not start: ${String(error)}`)
+      }
+    }
+  }
 
   /** (Re)start the triggers after briefings changed. */
   sync(): void {
@@ -55,6 +68,13 @@ export class Engine {
 
   stop(): void {
     this.stopTriggers()
+    for (const stop of this.services.splice(0)) {
+      try {
+        stop()
+      } catch {
+        // keep stopping the others
+      }
+    }
   }
 
   private stopTriggers(): void {

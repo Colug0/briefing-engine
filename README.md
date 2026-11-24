@@ -8,8 +8,12 @@ runs, **what** it says and **where** it goes.
   e.g. a switch or a button. Every briefing can also be run by hand.
 - **Content:** position, batteries, tanks, sun, moon, tides, weather forecast,
   and the value of any Signal K path. Each block is optional and configurable.
-- **Deliveries:** the plugin's own webapp and a Signal K notification
-  "Briefing … ready".
+- **Deliveries:** the plugin's own webapp, a Signal K notification
+  "Briefing … ready", and ntfy push to a server on board (sent at once) and/or
+  a server on the internet (sent once there is a connection).
+
+A block can flag a warning or an alarm; deliveries then raise the ntfy
+priority and the notification state, unless that is turned off.
 
 Briefings are created, cloned, enabled and disabled in the webapp
 (**Webapps → Briefing Engine**). There each briefing shows with small
@@ -58,9 +62,15 @@ and litres.
 | Timezone source | – | `$source` to prefer for the ship's timezone offset |
 | Content timeout | 20 s | a block that takes longer is reported as not available |
 | Briefings kept in the history | 100 | |
+| Offline data shown for | 24 h | without internet, blocks show their last internet data with its age until it is this old |
 
 Briefings, their history and the schedules' state are stored in the plugin's
-data directory (`plugin-config-data/briefing-engine/briefings/`).
+data directory (`plugin-config-data/briefing-engine/briefings/`). Remembered
+internet data lives in `cache/` next to it, tagged with `CACHEDIR.TAG` so
+backups skip it.
+
+The ntfy delivery follows the ntfy transport of
+[signalk-alert-center](https://github.com/arodus/signalk-alert-center) (MIT).
 
 ## Adding a type
 

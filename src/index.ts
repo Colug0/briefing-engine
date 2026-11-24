@@ -3,6 +3,7 @@ import type { Plugin, ServerAPI } from '@signalk/server-api'
 import Type, { type Static } from 'typebox'
 import { registerApi, type RouterLike } from './api.js'
 import { createContext, shipOffset, TIMEZONE_PATH } from './engine/context.js'
+import { Cache } from './engine/cache.js'
 import { Engine } from './engine/engine.js'
 import { Store } from './engine/store.js'
 import { createRegistry } from './types.js'
@@ -24,7 +25,14 @@ const ConfigSchema = Type.Object({
     minimum: 1,
     maximum: 300
   }),
-  historySize: Type.Integer({ title: 'Briefings kept in the history', default: 100, minimum: 1, maximum: 1000 })
+  historySize: Type.Integer({ title: 'Briefings kept in the history', default: 100, minimum: 1, maximum: 1000 }),
+  cacheMaxAgeHours: Type.Number({
+    title: 'Offline data shown for (h)',
+    description: 'Without internet, blocks show their last internet data with its age until it is this old.',
+    default: 24,
+    minimum: 1,
+    maximum: 168
+  })
 })
 type Config = Static<typeof ConfigSchema>
 
@@ -55,17 +63,22 @@ export default function (app: ServerAPI): Plugin {
     schema: () => ConfigSchema,
 
     start(raw) {
-      config = { contentTimeoutSeconds: 20, historySize: 100, ...(raw as Partial<Config>) }
+      config = { contentTimeoutSeconds: 20, historySize: 100, cacheMaxAgeHours: 24, ...(raw as Partial<Config>) }
       const mine = ++generation
       const store = new Store(join(app.getDataDirPath(), 'briefings'), config.historySize, (m) => app.error(m))
-      const ctx = createContext(app, PLUGIN_ID, store, { timezoneSource: config.timezoneSource?.trim() || undefined })
+      const cache = new Cache(join(app.getDataDirPath(), 'cache'), (m) => app.error(m))
+      const ctx = createContext(app, PLUGIN_ID, store, {
+        timezoneSource: config.timezoneSource?.trim() || undefined,
+        cache,
+        cacheMaxAgeMs: config.cacheMaxAgeHours * 3_600_000
+      })
       const engine = new Engine(ctx, registry, store, { contentTimeoutMs: config.contentTimeoutSeconds * 1000 })
-      store
-        .load()
+      Promise.all([store.load(), cache.load()])
         .then(() => {
           // A restart while loading leaves this start behind.
           if (mine !== generation) return
           running = { store, engine }
+          engine.startServices()
           engine.sync()
           const s = status()
           const enabled = `${s.enabled} of ${s.briefings} briefings enabled`
