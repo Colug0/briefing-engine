@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ampHours, overnightContent, windowStart } from '../src/contents/overnight.js'
 import { tankContent, yesterday } from '../src/contents/tanks.js'
 import { totalUse } from '../src/engine/history.js'
@@ -51,6 +51,8 @@ describe('sums from history', () => {
     // Wobble of ±3 L around 110 L is no use at all.
     expect(totalUse([0.111, 0.114, 0.111, 0.114, 0.111], 0.0045)).toBeCloseTo(0)
     expect(totalUse([0.1], 0.01)).toBeUndefined()
+    // A fill is followed to its peak: used 0.02, filled 0.06.
+    expect(totalUse([0.1, 0.08, 0.12, 0.14], 0.03)).toBeCloseTo(0.02)
   })
 })
 
@@ -111,5 +113,18 @@ describe('tanks yesterday', () => {
     expect(block.text).toBe(
       "Tanks. Fuel: 74%. Yesterday's use not available (no history provider (e.g. signalk-questdb))."
     )
+    expect(block.data).toMatchObject({ note: "Yesterday's use not available (no history provider (e.g. signalk-questdb))." })
+  })
+
+  it('does not let a slow history hold up the current readings', async () => {
+    vi.useFakeTimers()
+    try {
+      const ctx = fakeCtx({ 'tanks.fuel.0.currentLevel': 0.74 }, { history: { getValues: () => new Promise(() => {}) } })
+      const pending = tankContent.fetch(ctx, { tanks: ['fuel.0'], yesterday: true })
+      await vi.advanceTimersByTimeAsync(8_000)
+      expect((await pending).text).toBe("Tanks. Fuel: 74%. Yesterday's use not available (the history did not answer in time).")
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

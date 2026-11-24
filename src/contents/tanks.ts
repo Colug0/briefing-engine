@@ -18,6 +18,9 @@ const TankSchema = Type.Object({
   })
 })
 
+/** Yesterday's use is extra: the current readings must not wait for a slow history. */
+const HISTORY_WAIT_MS = 8_000
+
 /** The previous ship-local day, midnight to midnight. */
 export function yesterday(now: Date, offsetMin: number): { from: Date; to: Date } {
   const l = localParts(now, offsetMin)
@@ -82,20 +85,28 @@ export const tankContent: ContentType<Static<typeof TankSchema>> = {
       }
     })
     if (!items.length) throw new Error('no tanks in Signal K')
-    let note = ''
+    let note: string | undefined
     if (config.yesterday) {
+      let timer: NodeJS.Timeout | undefined
       try {
-        const used = await usedYesterday(ctx, items.map((i) => i.id))
+        const used = await Promise.race([
+          usedYesterday(ctx, items.map((i) => i.id)),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error('the history did not answer in time')), HISTORY_WAIT_MS)
+          })
+        ])
         for (const i of items) i.usedYesterdayText = used[i.id]
       } catch (error) {
-        note = ` Yesterday's use not available (${error instanceof Error ? error.message : String(error)}).`
+        note = `Yesterday's use not available (${error instanceof Error ? error.message : String(error)}).`
+      } finally {
+        clearTimeout(timer)
       }
     }
     const lines = items.map((i) => {
       const now = i.levelText ? (i.volumeText ? `${i.levelText} (${i.volumeText})` : i.levelText) : (i.volumeText ?? 'no data')
       return `${i.name}: ${now}${i.usedYesterdayText ? `, used yesterday ${i.usedYesterdayText}` : ''}`
     })
-    const data: TankData = { items }
-    return { title: 'Tanks', text: `Tanks. ${lines.join('. ')}.${note}`, data }
+    const data: TankData = { items, note }
+    return { title: 'Tanks', text: `Tanks. ${lines.join('. ')}.${note ? ` ${note}` : ''}`, data }
   }
 }

@@ -94,6 +94,7 @@ function Tanks({ d }: { d: TankData }) {
           />
         ))}
       </div>
+      {d.note && <p className="muted">{d.note}</p>}
     </Row>
   )
 }

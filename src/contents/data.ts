@@ -53,6 +53,8 @@ export interface TankItem {
 
 export interface TankData {
   items: TankItem[]
+  /** Why yesterday's use is missing, when it was asked for. */
+  note?: string
 }
 
 export interface SunData {
