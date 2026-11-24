@@ -100,7 +100,7 @@ function SunAndMoon({ sun, moon }: { sun?: SunData; moon?: MoonData }) {
         )}
         {moon && (
           <Tile
-            graphic={<MoonDisc phase={moon.phase} fraction={moon.fraction} southern={moon.southern} />}
+            graphic={<MoonDisc phase={moon.phase} name={moon.phaseName} fraction={moon.fraction} southern={moon.southern} />}
             title={join([moon.phaseName, moon.fraction !== undefined ? `${Math.round(moon.fraction * 100)}%` : undefined])}
             detail={moon.always ? `${moon.always} all day` : join([moon.riseText && `rises ${moon.riseText}`, moon.setText && `sets ${moon.setText}`])}
           />

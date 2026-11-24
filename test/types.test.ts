@@ -262,7 +262,7 @@ describe('weather', () => {
       { now: '2026-11-22T19:30:00Z', weather: { getForecasts, getWarnings: async () => [{ details: 'Strong wind warning' }] } }
     )
     const block = await weatherContent.fetch(ctx, { days: 1, waves: true, warnings: true, description: false })
-    expect(getForecasts.mock.calls.map((c) => c[1])).toEqual(['daily', 'point'])
+    expect(getForecasts.mock.calls.map((c) => c[1]).sort()).toEqual(['daily', 'point'])
     expect(block.text).toBe('Weather. Today: 23.9 to 28.9 °C, wind 15.0 kn from SE, gusts 21.0 kn, rain 3 mm. Warning: Strong wind warning.')
   })
 
@@ -295,7 +295,29 @@ describe('weather', () => {
     })
   })
 
+  it('does not let slow hourly points cost the daily forecast', async () => {
+    vi.useFakeTimers()
+    try {
+      const getForecasts = vi.fn((_p: unknown, type: string) =>
+        type === 'daily'
+          ? Promise.resolve([{ date: '2026-11-24T00:00:00.000Z', type: 'daily', description: 'Clear sky', outside: { maxTemperature: 300 } }])
+          : new Promise<WeatherData[]>(() => {})
+      )
+      const ctx = fakeCtx({ 'navigation.position': { latitude: -8.6, longitude: 179.1 } }, { now: '2026-11-23T20:00:00Z', weather: { getForecasts } })
+      const pending = weatherContent.fetch(ctx, { days: 1, waves: true, warnings: false, description: false })
+      await vi.advanceTimersByTimeAsync(5_000)
+      const block = await pending
+      expect(block.text).toBe('Weather. Today: 26.9 °C.')
+      expect(block.data).toMatchObject({ days: [{ condition: 'clear' }] })
+      expect((block.data as { days: Array<{ description?: string }> }).days[0]?.description).toBeUndefined()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('keeps a daily entry on its own date west of Greenwich', () => {
+    // The provider may leave out `type`; which list an entry came in decides.
+    expect(summarize([{ date: '2026-11-24T00:00:00.000Z' }], [], -600, 1, new Date('2026-11-24T18:00:00Z')).map((d) => d.date)).toEqual(['2026-11-24'])
     const daily = [{ date: '2026-11-24T00:00:00.000Z', type: 'daily', description: 'Clear sky' }]
     // 08:00 on 24 Nov at UTC-10 is 18:00 UTC.
     expect(summarize(daily, [], -600, 1, new Date('2026-11-24T18:00:00Z')).map((d) => d.date)).toEqual(['2026-11-24'])

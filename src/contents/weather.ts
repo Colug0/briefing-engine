@@ -23,6 +23,9 @@ const UNIT = {
   wind: 'environment.wind.speedTrue'
 }
 
+/** Hourly points only add waves; a slow answer must not cost the daily forecast. */
+const POINTS_WAIT_MS = 5_000
+
 /** Gusts from 30 kn get their own wind symbol. */
 const WINDY_GUST = 15.4
 
@@ -66,16 +69,16 @@ const ratio = (v: unknown): number | undefined => (isNum(v) ? (v > 1 ? v / 100 :
  * whole day and is stamped at that day's UTC midnight, which shifting by the
  * ship's offset would move to the day before west of Greenwich.
  */
-function dayOf(item: WeatherData, offsetMin: number): string | undefined {
+function dayOf(item: WeatherData, kind: 'daily' | 'point', offsetMin: number): string | undefined {
   const t = Date.parse(item.date)
   if (Number.isNaN(t)) return undefined
-  return item.type === 'daily' ? item.date.slice(0, 10) : localParts(new Date(t), offsetMin).isoDate
+  return kind === 'daily' ? item.date.slice(0, 10) : localParts(new Date(t), offsetMin).isoDate
 }
 
-function group(items: WeatherData[], offsetMin: number, today: string): Map<string, WeatherData[]> {
+function group(items: WeatherData[], kind: 'daily' | 'point', offsetMin: number, today: string): Map<string, WeatherData[]> {
   const byDay = new Map<string, WeatherData[]>()
   for (const item of items) {
-    const day = dayOf(item, offsetMin)
+    const day = dayOf(item, kind, offsetMin)
     if (!day || day < today) continue
     byDay.set(day, [...(byDay.get(day) ?? []), item])
   }
@@ -89,8 +92,8 @@ function group(items: WeatherData[], offsetMin: number, today: string): Map<stri
  */
 export function summarize(daily: WeatherData[], points: WeatherData[], offsetMin: number, days: number, now: Date): DaySummary[] {
   const today = localParts(now, offsetMin).isoDate
-  const byDaily = group(daily, offsetMin, today)
-  const byPoint = group(points, offsetMin, today)
+  const byDaily = group(daily, 'daily', offsetMin, today)
+  const byPoint = group(points, 'point', offsetMin, today)
   return [...new Set([...byDaily.keys(), ...byPoint.keys()])]
     .sort()
     .slice(0, days)
@@ -144,7 +147,7 @@ function dayName(date: string, today: string, ctx: Ctx): string {
   return new Date(`${date}T12:00:00Z`).toUTCString().slice(0, 11).replace(',', '')
 }
 
-export function toDay(ctx: Ctx, d: DaySummary, name: string, waves: boolean): WeatherDay {
+export function toDay(ctx: Ctx, d: DaySummary, name: string, waves: boolean, description: boolean): WeatherDay {
   const lo = shownAs(ctx, UNIT.temperature, d.minTemperature)
   const hi = shownAs(ctx, UNIT.temperature, d.maxTemperature)
   // Volumes come in metres of water; rain reads best in millimetres.
@@ -154,7 +157,7 @@ export function toDay(ctx: Ctx, d: DaySummary, name: string, waves: boolean): We
     date: d.date,
     name,
     condition: conditionOf(d),
-    description: d.description,
+    description: description ? d.description : undefined,
     temperatureText: lo && hi && lo !== hi ? `${lo.replace(/ ?°.*$/, '')} to ${hi}` : (hi ?? lo),
     windText: shownAs(ctx, UNIT.wind, d.windSpeed),
     windDirection: d.windDirection,
@@ -166,9 +169,9 @@ export function toDay(ctx: Ctx, d: DaySummary, name: string, waves: boolean): We
   }
 }
 
-export function describeDay(day: WeatherDay, description: boolean): string {
+export function describeDay(day: WeatherDay): string {
   const parts = joinParts([
-    description ? day.description : undefined,
+    day.description,
     day.temperatureText,
     day.windText && `wind ${day.windText}${day.compass ? ` from ${day.compass}` : ''}`,
     day.gustText && `gusts ${day.gustText}`,
@@ -191,15 +194,22 @@ export const weatherContent: ContentType<Config> = {
     const position = { latitude: p.latitude, longitude: p.longitude }
     const offset = ctx.utcOffsetMinutes()
     const now = ctx.now()
-    const [daily, points] = await Promise.all([
-      api.getForecasts(position, 'daily', { maxCount: config.days + 1 }).catch(() => [] as WeatherData[]),
-      api.getForecasts(position, 'point', { maxCount: (config.days + 1) * 24 }).catch(() => [] as WeatherData[])
+    const pointsRequest = api.getForecasts(position, 'point', { maxCount: (config.days + 1) * 24 }).catch(() => [] as WeatherData[])
+    let timer: NodeJS.Timeout | undefined
+    const pointsOrNothing = Promise.race([
+      pointsRequest,
+      new Promise<WeatherData[]>((resolve) => {
+        timer = setTimeout(() => resolve([]), POINTS_WAIT_MS)
+      })
     ])
+    const daily = await api.getForecasts(position, 'daily', { maxCount: config.days + 1 }).catch(() => [] as WeatherData[])
+    // Without a daily forecast the points are all there is, so then wait for them in full.
+    const points = await (daily?.length ? pointsOrNothing : pointsRequest).finally(() => clearTimeout(timer))
     const summaries = summarize(daily ?? [], points ?? [], offset, config.days, now)
     if (!summaries.length) throw new Error('the provider returned no forecast')
     const today = localParts(now, offset).isoDate
-    const days = summaries.map((d) => toDay(ctx, d, dayName(d.date, today, ctx), config.waves))
-    const lines = days.map((d) => describeDay(d, config.description))
+    const days = summaries.map((d) => toDay(ctx, d, dayName(d.date, today, ctx), config.waves, config.description))
+    const lines = days.map(describeDay)
 
     const warnings: string[] = []
     if (config.warnings && api.getWarnings) {

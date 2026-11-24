@@ -252,3 +252,14 @@ describe('engine', () => {
     await store.flush()
   })
 })
+
+describe('moon drawing', () => {
+  it('knows the lit side from the phase, else from the name, else not at all', async () => {
+    const { waxingOf } = await import('../web/src/blocks/moon.js')
+    expect(waxingOf(0.3, 'Waning Crescent')).toBe(true)
+    expect(waxingOf(undefined, 'Waning Crescent')).toBe(false)
+    expect(waxingOf(undefined, 'First Quarter')).toBe(true)
+    expect(waxingOf(undefined, 'Full Moon')).toBe(true)
+    expect(waxingOf(undefined, undefined)).toBeUndefined()
+  })
+})

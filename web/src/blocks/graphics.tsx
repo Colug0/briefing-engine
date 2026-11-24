@@ -1,4 +1,5 @@
 import type { TankKind } from '../../../src/contents/data'
+import { waxingOf } from './moon'
 
 /** Horizontal battery, filled to the state of charge and coloured by the block's thresholds. */
 export function BatteryGauge({ soc, low, high }: { soc?: number; low: number; high: number }) {
@@ -41,10 +42,12 @@ export function TankGauge({ level, kind }: { level?: number; kind: TankKind }) {
  * The moon's disc as seen from the vessel. `phase` runs 0 (new) → 0.5 (full) → 1.
  * North of the equator the waxing moon is lit on the right, south of it on the left.
  */
-export function MoonDisc({ phase, fraction, southern }: { phase?: number; fraction?: number; southern: boolean }) {
+export function MoonDisc({ phase, name, fraction, southern }: { phase?: number; name?: string; fraction?: number; southern: boolean }) {
   const r = 15
   const lit = typeof fraction === 'number' ? fraction : typeof phase === 'number' ? (1 - Math.cos(2 * Math.PI * phase)) / 2 : 0
-  const waxing = typeof phase === 'number' ? phase < 0.5 : true
+  const waxing = waxingOf(phase, name)
+  // Without knowing which side is lit, a drawing would be wrong half the time.
+  if (waxing === undefined) return null
   // The terminator is an ellipse with half-width |1 - 2·lit|·r.
   const rx = Math.abs(1 - 2 * lit) * r
   const rightLit = waxing !== southern
