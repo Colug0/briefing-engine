@@ -67,6 +67,26 @@ describe('marine bulletin', () => {
     expect(parseBulletin('Émis le 24 novembre 2026 à 0600 UTC.', boat, 600).issued).toBe('24 novembre 2026 à 0600 UTC')
   })
 
+  it('finds the warning in a bulletin without a single blank line', () => {
+    // Fiji Met's Fiji waters bulletin of 24 Nov 18:00 UTC: heading, issue lines and warning run together.
+    const waters = parseBulletin(fixture('fqfj40.nffn-241800'), boat, 600)
+    expect(waters.warnings).toEqual(['A STRONG WIND WARNING REMAINS IN FORCE FOR ALL FIJI WATERS EXCEPT MAMANUCA WATERS.'])
+    expect(waters.severity).toBe('warn')
+  })
+
+  it('reads warnings from the warnings part and not from mentions in forecasts', () => {
+    // BoM: the warning is listed in Part 1; "outside of warning area" in Part 3 is no warning.
+    const au = parseBulletin(fixture('fqau22.ammc'), boat, 600)
+    expect(au.warnings).toEqual(['Melbourne Storm Force Wind Warning 11.'])
+    expect(au.severity).toBe('alarm')
+    // MetService NZ: "WARNINGS IN FORCE: 337"; "gales as in warning 337" in the forecast is a mention.
+    const nz = parseBulletin(fixture('fqps45.nzkl'), boat, 600)
+    expect(nz.warnings).toEqual(['WARNINGS IN FORCE: 337'])
+    expect(nz.severity).toBe('warn')
+    expect(parseBulletin('Southerly 20kt, gales as in warning 12.', boat, 600).warnings).toEqual([])
+    expect(parseBulletin('Part 1 - WARNINGS\nWARNINGS IN FORCE: NIL\n\nPart 2 - Situation', boat, 600).warnings).toEqual([])
+  })
+
   it('splits paragraphs on blank lines and indented lines', () => {
     expect(paragraphs('A\nB\n\n C\nD\n')).toEqual(['A B', 'C D'])
   })

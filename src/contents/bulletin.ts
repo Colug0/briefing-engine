@@ -48,24 +48,51 @@ const MAX_PARAGRAPH = 400
 const tidy = (s: string) => s.replace(/\s+/g, ' ').trim()
 const clip = (s: string) => (s.length > MAX_PARAGRAPH ? `${s.slice(0, MAX_PARAGRAPH - 1)}…` : s)
 
-const NO_WARNING = /\b(warning|warnings)\s*:?\s*nil\b|\bno (gale |storm )?warnings?\b|\bnil warnings?\b/i
+const NO_WARNING = /\bwarnings?(\s+in\s+force)?\s*:?\s*nil\b|\bno (gale |storm )?warnings?\b|\bnil warnings?\b/i
 /** A paragraph about a tropical system itself, not one that only mentions it. */
 const TROPICAL = /^(severe )?(tropical (cyclone|depression|storm|low|disturbance)|hurricane|typhoon|TC\b|TD\d)/i
 const WARNING = /\bwarning\b|\bavis de\b/i
 const SEVERE = /hurricane|typhoon|storm[\s-]+force|storm warning|violent storm|tempête|ouragan/i
 /** Tropical cyclone names such as XAVIER do not make a paragraph severe; force words do. */
 
-/** Paragraphs of a bulletin: blank lines or a line starting with a space start a new one. */
+/** Lines that belong to the message heading, not to its content. */
+const HEADING_LINE = /^\s*([A-Z]{4}\d{2}\s+[A-Z]{4}\s+\d{6}|[A-Z]{4}\s*$|;|IDY\d+\s*$|SECURITE\s*$)/
+/** A line that starts a new section or a new weather system. */
+const SECTION_START =
+  /^\s*(situation|synopsis|forecast|further outlook|outlook|part\s*\d|warnings?\b|for all|for [a-z]+ waters|trough|low|high|ridge|front|cold front|tropical|convergence zone|south of|north of|east of|west of|remainder)/i
+
+/**
+ * Paragraphs of a bulletin. Blank lines and indented lines start a new one.
+ * Some bulletins come without a single blank line, so the heading, a line
+ * ending in a colon, the end of the "issued" lines, and a sentence end
+ * followed by a new section or system also start a new one.
+ */
 export function paragraphs(text: string): string[] {
   const out: string[] = []
   let cur: string[] = []
-  for (const line of text.replace(/\r/g, '').split('\n')) {
-    if (!line.trim() || (/^\s/.test(line) && cur.length)) {
-      if (cur.length) out.push(tidy(cur.join(' ')))
-      cur = line.trim() ? [line] : []
-    } else cur.push(line)
+  const flush = () => {
+    if (cur.length) out.push(tidy(cur.join(' ')))
+    cur = []
   }
-  if (cur.length) out.push(tidy(cur.join(' ')))
+  const lines = text.replace(/\r/g, '').split('\n')
+  let inIssued = false
+  lines.forEach((line, i) => {
+    const next = lines[i + 1] ?? ''
+    if (!line.trim()) return flush()
+    if (/^\s/.test(line) && cur.length) flush()
+    if (HEADING_LINE.test(line)) {
+      flush()
+      out.push(tidy(line))
+      return
+    }
+    cur.push(line)
+    // "ISSUED FROM ..." and its "AT 8:30AM ON ..." line end the heading.
+    if (/\b(issued|émis)\b/i.test(line)) inIssued = true
+    const issuedEnds = inIssued && !/^\s*(at|on|for|valid|le|à)\b/i.test(next) && !/\b(issued|émis)\b/i.test(next)
+    if (issuedEnds) inIssued = false
+    if (issuedEnds || /:\s*$/.test(line) || (/[.]\s*$/.test(line) && SECTION_START.test(next))) flush()
+  })
+  flush()
   return out.filter(Boolean)
 }
 
@@ -96,21 +123,52 @@ export interface ParsedBulletin {
  * near the vessel. Bulletins differ by service, so this reads them by
  * patterns rather than by a fixed layout.
  */
+const PART_ONE = /^parts?\s*1\b\s*[-:.]?\s*/i
+/** "Part 1 Warnings", "PART 1 : WARNING NIL.", "PART 1 : STORM WARNING 042 …" */
+const isWarningsPart = (p: string) => PART_ONE.test(p) && /warning/i.test(p.split('.')[0] ?? '')
+const BOILERPLATE = /^refer to (the )?latest warnings?\b/i
+/** A sentence that only mentions a warning, as in "gales as in warning 337" or "outside of warning area". */
+const MENTION = /\b(as in|outside( of)?|inside( of)?|refer to|see)\b[^.]*\bwarning/i
+
+/**
+ * Warnings, kept whole. Services that number their parts list warnings in
+ * "Part 1 Warnings"; then that part is read and nothing else. Without it (Fiji
+ * waters), a paragraph counts when its first sentence is a warning.
+ */
+export function findWarnings(paras: string[]): { warnings: string[]; section: Set<number> } {
+  const start = paras.findIndex(isWarningsPart)
+  const section = new Set<number>()
+  const warnings: string[] = []
+  const keep = (p: string) => {
+    const t = tidy(p)
+    if (t && !BOILERPLATE.test(t) && !NO_WARNING.test(t) && !/^nil\.?$/i.test(t)) warnings.push(t)
+  }
+  if (start >= 0) {
+    section.add(start)
+    keep(paras[start]!.replace(PART_ONE, '').replace(/^warnings?\b\s*[-:.]?\s*/i, ''))
+    for (let i = start + 1; i < paras.length && !/^parts?\s*\d/i.test(paras[i]!); i++) {
+      section.add(i)
+      keep(paras[i]!)
+    }
+    return { warnings, section }
+  }
+  for (const p of paras) {
+    const first = p.split(/(?<=[.:])\s/)[0] ?? p
+    if (WARNING.test(first) && !MENTION.test(first) && !NO_WARNING.test(p)) warnings.push(p)
+  }
+  return { warnings, section }
+}
+
 export function parseBulletin(text: string, vessel: Position | undefined, radiusNm: number): ParsedBulletin {
   const paras = paragraphs(text)
   const issued = issuedAt(text)
-  const warnings: string[] = []
+  const { warnings, section } = findWarnings(paras)
   const systems: BulletinSystem[] = []
   let severeNearby = false
-  for (const p of paras) {
-    if (/^(part|parts)\s*\d/i.test(p) && NO_WARNING.test(p)) continue
+  for (const [i, p] of paras.entries()) {
+    if (section.has(i) || warnings.includes(p)) continue
     const tropical = TROPICAL.test(p)
     const pos = vessel ? nearestPosition(p, vessel) : findPositions(p)[0]
-    if (WARNING.test(p) && !NO_WARNING.test(p) && !/^(part|parts)\s*\d+\s*(and\s*\d+)?\s*:\s*(synopsis|forecast)/i.test(p)) {
-      // Warnings stay whole: what matters may come at the end.
-      warnings.push(p)
-      continue
-    }
     if (!pos && !tropical) continue
     const near = vessel && pos ? distanceNm(vessel, pos) <= radiusNm : !vessel
     if (!near && !tropical) continue

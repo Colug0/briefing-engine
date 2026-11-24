@@ -1,0 +1,29 @@
+FQPS45 NZKL 241838
+MARINE WEATHER BULLETIN FOR PACIFIC
+Area from 25S to 55S and 170W to 120W.
+
+Issued by Meteorological Service of New Zealand,
+Wellington issued at 241838UTC Valid until 251200UTC.
+
+Part 1 - WARNINGS
+WARNINGS IN FORCE: 337
+
+Part 2 - Situation analysis at 241800UTC:
+Trough T1 34S 131W 41S 126W 50S 116W, moving east 20kt.
+Area A1 bounded by 40S 146W 36S 141W 45S 131W 49S 137W 40S 146W, slow moving.
+Trough T2 expected near 25S 140W 27S 140W 30S 140W by 251200UTC.
+Front F1 expected near 47S 150W 52S 148W 55S 146W by 250000UTC, then moving east 35kt.
+Area A2 bounded by 45S 170W 55S 151W 55S 170W 45S 170W, slow moving.
+
+Part 3 - Forecast:
+Refer to latest warnings.
+Within 180 nautical miles of T1: Areas of poor visibility in rain, easing by 251200UTC.
+Within A1: Areas of heavy westerly quarter swell, easing by 250000UTC.
+Within 120 nautical miles of T2: Poor visibility in rain developing by 251200UTC.
+East of F1: Northwest 30kt, with gales as in warning 337.
+Within 600 nautical miles west of F1: Westerly 25kt developing by 250600UTC.
+Within A2: Areas of fog.
+Outlook for the following 72 hours:
+Ridge near 54S 160W extending northeast, moving east. Southeast of ridge: westerly quarter 30kt to gale at times and areas of heavy westerly quarter swell. Low developing near 28S 127W by 280000UTC, moving southeast. About low: clockwise 30kt to gale at times.
+
+
