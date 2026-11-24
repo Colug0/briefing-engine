@@ -61,14 +61,17 @@ export function medianSmooth(ns: number[], width = 5): number[] {
   if (ns.length < width) return ns
   const half = Math.floor(width / 2)
   return ns.map((_, i) => {
-    const win = ns.slice(Math.max(0, i - half), Math.min(ns.length, i + half + 1)).sort((a, b) => a - b)
-    return win[Math.floor(win.length / 2)]!
+    // The window shrinks symmetrically towards the ends, so the first and last
+    // readings stay what they were: they are the balance of the period.
+    const r = Math.min(half, i, ns.length - 1 - i)
+    const win = ns.slice(i - r, i + r + 1).sort((a, b) => a - b)
+    return win[r]!
   })
 }
 
 /**
- * What a tank used: start minus end plus what was filled in. Only a rise of
- * more than `refill` counts as filling; smaller ups and downs are the sender
+ * What a tank used: start minus end plus what was filled in. A rise of more
+ * than `refill` starts a fill, which then runs on to the peak of that rise; smaller ups and downs are the sender
  * wobbling, and summing every drop would count that wobble as use.
  */
 export function totalUse(xs: Array<number | null>, refill: number): number | undefined {
@@ -77,12 +80,13 @@ export function totalUse(xs: Array<number | null>, refill: number): number | und
   let filled = 0
   // Compare against the lowest value since the last fill, so a fill spread over buckets counts once.
   let low = ns[0]!
-  // Once a rise is a fill, follow it to its peak, across readings that hold level.
+  // Once a rise is a fill, follow it to its peak while the readings keep rising;
+  // the first reading that does not rise ends it, so later wobble is no fill.
   let filling = false
   for (let i = 1; i < ns.length; i++) {
     const v = ns[i]!
     const prev = ns[i - 1]!
-    if (filling && v >= prev) {
+    if (filling && v > prev) {
       filled += v - prev
       low = v
       continue

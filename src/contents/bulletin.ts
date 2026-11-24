@@ -75,10 +75,13 @@ export function paragraphs(text: string): string[] {
  */
 export function issuedAt(text: string): string | undefined {
   const flat = text.replace(/\s+/g, ' ')
-  const gts = flat.match(/\bissued\b[^.]*?\b([A-Z]{3}\s+\d{6}\s*UTC)\b/i)?.[1]
+  // \p{L} lookarounds instead of \b, so "Émis" counts as a word too.
+  const marker = String.raw`(?<!\p{L})(?:issued|émis)(?!\p{L})`
+  const gts = flat.match(new RegExp(String.raw`${marker}[^.]*?\b([A-Z]{3}\s+\d{6}\s*UTC)\b`, 'iu'))?.[1]
   if (gts) return gts
-  const line = flat.match(/\b(?:issued|émis)\b[^.]*?(\d{1,2}\s*\w{3,9}\s*\d{4}[^.]*?UTC|\d{4}\s*UTC[^.]*)/i)?.[1]
-  return line?.trim()
+  // Only the time stamp itself: a date, an optional "at"/"à", and a UTC time, in either order.
+  const stamp = String.raw`\d{1,2}\s+\p{L}{3,9}\s+\d{4}(?:\s+(?:at|à)?\s*\d{2}:?\d{2}\s*UTC)?|\d{2}:?\d{2}\s*UTC(?:\s+\d{1,2}\s+\p{L}{3,9}\s+\d{4})?`
+  return flat.match(new RegExp(String.raw`${marker}[^.]*?(${stamp})`, 'iu'))?.[1]?.trim()
 }
 
 export interface ParsedBulletin {

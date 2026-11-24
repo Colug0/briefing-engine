@@ -58,8 +58,12 @@ describe('sums from history', () => {
     // 8 % of its 150 L tank is the fill threshold the tanks block uses.
     expect(totalUse(day, 0.012)! * 1000).toBeLessThan(1)
     expect(medianSmooth([1, 1, 9, 1, 1])).toEqual([1, 1, 1, 1, 1])
+    // A clean steady fall keeps its first and last reading.
+    expect(totalUse([0.15, 0.14, 0.13, 0.12, 0.11], 0.012)).toBeCloseTo(0.04)
+    // A rise below the threshold after a fill has peaked is wobble, not more fill.
+    expect(totalUse([0.1, 0.1, 0.1, 0.12, 0.12, 0.12, 0.12, 0.128, 0.128, 0.128], 0.012)).toBeCloseTo(0)
     // A fill is followed to its peak: used 0.02, filled 0.06.
-    expect(totalUse(steps(0.1, 0.08, 0.12, 0.14), 0.03)).toBeCloseTo(0.02)
+    expect(totalUse([0.1, 0.1, 0.1, 0.08, 0.08, 0.08, 0.12, 0.14, 0.14, 0.14, 0.14], 0.03)).toBeCloseTo(0.02)
   })
 })
 

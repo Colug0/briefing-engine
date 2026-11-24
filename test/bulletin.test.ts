@@ -62,6 +62,9 @@ describe('marine bulletin', () => {
     // Fiji Met's bulletin of 24 Nov 06:00 repeats its heading before the time.
     expect(parseBulletin(fixture('fqps01.nffn-240600'), boat, 600).issued).toBe('NOV 240800 UTC')
     expect(parseBulletin(fixture('fqps01.nffn'), boat, 600).issued).toBe('NOV 232000 UTC')
+    // Only the time stamp, never the text after it; French markers too.
+    expect(parseBulletin('Issued at 0600 UTC\n\nGALE WARNING FOR FIJI.', boat, 600).issued).toBe('0600 UTC')
+    expect(parseBulletin('Émis le 24 novembre 2026 à 0600 UTC.', boat, 600).issued).toBe('24 novembre 2026 à 0600 UTC')
   })
 
   it('splits paragraphs on blank lines and indented lines', () => {
