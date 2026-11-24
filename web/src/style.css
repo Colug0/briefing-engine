@@ -604,3 +604,9 @@ button.add:hover {
     padding-left: 0.75rem;
   }
 }
+fieldset.editor-lock {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}

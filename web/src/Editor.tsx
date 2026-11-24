@@ -28,6 +28,9 @@ interface DraftState {
   open: string[]
   /** Which kind shows its list of types to add. */
   adding?: Kind
+  /** Counts up whenever a draft is opened, so a save that finishes late knows whether it is still about the same draft. */
+  session: number
+  start(d: Draft, forId: string | undefined, open: string[]): void
   set(d: Draft | undefined, forId?: string): void
   setOpen(open: string[]): void
   setAdding(kind: Kind | undefined): void
@@ -36,6 +39,8 @@ interface DraftState {
 /** The draft being edited, kept outside the component so leaving the view does not lose it. */
 const useDraft = create<DraftState>((set) => ({
   open: [],
+  session: 0,
+  start: (draft, forId, open) => set((s) => ({ draft, forId, open, adding: undefined, session: s.session + 1 })),
   set: (draft, forId) => set({ draft, forId }),
   setOpen: (open) => set({ open }),
   setAdding: (adding) => set({ adding })
@@ -137,16 +142,14 @@ function PartCard({
 
 export function Editor({ id }: { id?: string }) {
   const { briefings, types, act, go, error, busy } = useStore()
-  const { draft, forId, set, open, setOpen, adding, setAdding } = useDraft()
+  const { draft, forId, set, open, setOpen, adding, setAdding, start } = useDraft()
 
   useEffect(() => {
     if (draft && forId === id) return
     const existing = id ? briefings.find((b) => b.id === id) : undefined
-    set(existing ? structuredClone(existing) : structuredClone(NEW), id)
     // A new briefing starts with its trigger open, an existing one closed.
-    setOpen(existing ? [] : NEW.triggers.map((_, i) => `triggers:${i}`))
-    setAdding(undefined)
-  }, [id, briefings, draft, forId, set, setOpen, setAdding])
+    start(existing ? structuredClone(existing) : structuredClone(NEW), id, existing ? [] : NEW.triggers.map((_, i) => `triggers:${i}`))
+  }, [id, briefings, draft, forId, start])
 
   if (!draft || !types) return <p className="muted">Loading…</p>
 
@@ -175,22 +178,31 @@ export function Editor({ id }: { id?: string }) {
     })
     return ok ? saved : undefined
   }
+  /** Still editing the draft this action started on: not left via the menu, no other draft opened. */
+  const stillHere = (session: number) => useDraft.getState().session === session && useStore.getState().view.name === 'edit'
   const save = async () => {
-    if (await persist()) leave()
+    const session = useDraft.getState().session
+    if ((await persist()) && stillHere(session)) leave()
   }
   /** A test run is of what is on screen, so it saves first. */
   const testRun = async () => {
+    const session = useDraft.getState().session
     const saved = await persist()
-    if (!saved) return
-    set({ ...draft, id: saved.id }, id)
-    if (await act('test', () => api.run(saved!.id))) {
+    if (!saved || !stillHere(session)) return
+    // Keep the id, so a failed run saves again as an update and not as a second briefing.
+    const now = useDraft.getState()
+    if (now.draft) now.set({ ...now.draft, id: saved.id }, now.forId)
+    if ((await act('test', () => api.run(saved.id))) && stillHere(session)) {
       set(undefined)
       go({ name: 'history', briefingId: saved.id })
     }
   }
+  const working = Boolean(busy.save || busy.test)
 
   return (
     <section className="editor">
+      {/* Locked while saving or running, so nothing typed meanwhile is lost. */}
+      <fieldset className="editor-lock" disabled={working}>
       <div className="editor-bar">
         <button className="icon" title="Back without saving" aria-label="Back without saving" onClick={leave}>
           <IconArrowLeft size={18} />
@@ -206,10 +218,10 @@ export function Editor({ id }: { id?: string }) {
           <input type="checkbox" checked={draft.enabled} onChange={(e) => update({ enabled: e.target.checked })} />
           {draft.enabled ? 'Enabled' : 'Disabled'}
         </label>
-        <button onClick={() => void testRun()} disabled={!draft.name.trim() || busy.save || busy.test}>
+        <button onClick={() => void testRun()} disabled={!draft.name.trim()}>
           <IconPlayerPlay size={16} aria-hidden /> {busy.test ? 'Running…' : 'Test run'}
         </button>
-        <button className="primary" onClick={() => void save()} disabled={!draft.name.trim() || busy.save}>
+        <button className="primary" onClick={() => void save()} disabled={!draft.name.trim()}>
           Save
         </button>
       </div>
@@ -284,6 +296,7 @@ export function Editor({ id }: { id?: string }) {
           )}
         </div>
       ))}
+      </fieldset>
     </section>
   )
 }
