@@ -50,7 +50,10 @@ export const batteryContent: ContentType<Static<typeof BatterySchema>> = {
       (i) => `${i.name}: ${joinParts([i.socText, i.voltageText, i.currentText, i.remainingText]) || 'no data'}`
     )
     const data: BatteryData = { items, low: config.lowPercent / 100, high: config.highPercent / 100 }
-    const summaryItems = items.map((i) => [i.name, i.socText, i.voltageText, i.currentText, i.remainingText].filter(Boolean).join(' · '))
+    const summaryItems = items.map((i) => {
+      const parts = [i.socText, i.voltageText, i.currentText, i.remainingText].filter(Boolean)
+      return [i.name, ...(parts.length ? parts : ['no data'])].join(' · ')
+    })
     return { title: 'Batteries', text: `Batteries. ${lines.join('. ')}.`, summary: 'Batteries', items: summaryItems, data }
   }
 }

@@ -107,7 +107,8 @@ export const stormContent: ContentType<Config> = {
       text: `Tropical cyclones. ${text}`,
       summary: storms.length ? 'Tropical cyclones' : `No tropical cyclones within ${config.radiusNm} nm`,
       items: storms.map(
-        (s) => `${s.name} · ${s.distanceNm} nm ${s.compass} · ${s.alertLevel} alert${s.description ? ` · ${s.description}` : ''}`
+        (s) =>
+          `${s.name} · ${s.distanceNm} nm ${s.compass} · ${s.alertLevel} alert${s.description ? ` · ${s.description}` : ''}${s.updatedText ? ` · updated ${s.updatedText}` : ''}`
       ),
       data,
       severity,

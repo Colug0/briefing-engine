@@ -112,6 +112,25 @@ function usable(t: TargetConfig): boolean {
   return t.enabled && t.server.trim() !== '' && t.topic.trim() !== ''
 }
 
+/**
+ * ntfy turns messages over 4096 bytes into attachments, which servers without
+ * attachments reject. Cut by UTF-8 bytes, never inside a character.
+ */
+export function fitBytes(text: string, maxBytes: number): string {
+  const enc = new TextEncoder()
+  if (enc.encode(text).length <= maxBytes) return text
+  const budget = maxBytes - enc.encode('…').length
+  let used = 0
+  let out = ''
+  for (const ch of text) {
+    const n = enc.encode(ch).length
+    if (used + n > budget) break
+    used += n
+    out += ch
+  }
+  return `${out}…`
+}
+
 function messageFor(t: TargetConfig, config: Config, run: RunResult): NtfyMessage {
   const body = config.markdown ? markdownLayout(run) : plainLayout(run)
   return {
@@ -119,7 +138,7 @@ function messageFor(t: TargetConfig, config: Config, run: RunResult): NtfyMessag
     topic: t.topic.trim(),
     token: t.token?.trim() || undefined,
     title: run.briefingName,
-    message: body.length > MAX_MESSAGE ? `${body.slice(0, MAX_MESSAGE - 1)}…` : body,
+    message: fitBytes(body, MAX_MESSAGE),
     priority: priorityFor(config.priority, run.severity, config.escalate),
     markdown: config.markdown || undefined,
     // Only warnings get a symbol before the title; a normal briefing stays plain.

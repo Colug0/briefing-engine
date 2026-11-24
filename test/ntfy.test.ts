@@ -2,7 +2,7 @@ import Type from 'typebox'
 import { describe, expect, it } from 'vitest'
 import { notificationDelivery } from '../src/deliveries/notification.js'
 import { moonEmoji } from '../src/contents/moon.js'
-import { flushPending, ntfyDelivery, priorityFor } from '../src/deliveries/ntfy.js'
+import { fitBytes, flushPending, ntfyDelivery, priorityFor } from '../src/deliveries/ntfy.js'
 import { markdownLayout, plainLayout } from '../src/engine/layout.js'
 import { INTERNET_PATH } from '../src/engine/internet.js'
 import { Registry } from '../src/engine/registry.js'
@@ -161,6 +161,13 @@ describe('layout for push messages', () => {
     const ctx = fakeCtx({}, { http: ok })
     await ntfyDelivery.deliver(ctx, config({ markdown: true }), layoutRun)
     expect(JSON.parse(String(ctx.requests[0]!.init!.body))).toMatchObject({ markdown: true, tags: ['warning'] })
+  })
+
+  it('cuts long messages by bytes, not inside an emoji', () => {
+    const cut = fitBytes('⛽'.repeat(2000), 4000)
+    expect(new TextEncoder().encode(cut).length).toBeLessThanOrEqual(4000)
+    expect(cut.endsWith('⛽…')).toBe(true)
+    expect(fitBytes('short', 4000)).toBe('short')
   })
 
   it('shows the moon as it looks', () => {
