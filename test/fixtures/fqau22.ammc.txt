@@ -1,0 +1,49 @@
+FQAU22 AMMC 242000
+IDY10210
+SECURITE
+
+High Seas Forecast for South Eastern METAREA 10
+SOUTH EASTERN AREA: COAST AT 25S TO 25S170E TO 29S170E TO 45S160E TO 50S160E TO
+50S129E TO COAST AT 129E
+
+Issued by the Australian Government Bureau of Meteorology
+For 24 hours commencing 2300 UTC 24 November 2026
+
+Part 1 Warnings
+Refer to latest warnings for details of the area affected.
+
+Melbourne Storm Force Wind Warning 11.
+
+Part 2 Situation at 241800 UTC
+Trough [1] near 39S129E 50S138E. Forecast trough [1] near 46S151E 50S160E at
+260000UTC.
+
+Trough [2] near 30S153E 33S158E 39S165E. Forecast trough [2] near 33S162E
+35S167E at 260000UTC.
+
+Part 3 Forecast
+Refer to latest warnings for boundary of affected area and type of weather
+system.
+
+South of line 44S129E 41S138E 49S160E, outside of warning area:
+Northwesterly quarter winds 20/33 knots. Rough seas. Moderate to heavy swell.
+
+Within 120nm of line 38S150E 44S149E:
+Northerly quarter winds 20/30 knots. Moderate to rough seas. Moderate swell.
+
+Remainder:
+Winds not exceeding 25 knots. Slight to moderate seas. Low to moderate swell.
+
+Rain areas, scattered showers and isolated thunderstorms mostly within 240nm of
+troughs. Visibility reducing below 2nm in precipitation.
+
+Please be aware
+Wind and wave forecasts are averages. Wind gusts can be 40 per cent stronger
+than the forecast, and stronger still in squalls and thunderstorms. Maximum
+waves can be twice the forecast height.
+
+WEATHER MELBOURNE
+
+The next routine forecast will be issued at 08:00 UTC Wednesday.
+
+

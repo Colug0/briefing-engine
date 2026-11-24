@@ -67,6 +67,47 @@ describe('marine bulletin', () => {
     expect(parseBulletin('Émis le 24 novembre 2026 à 0600 UTC.', boat, 600).issued).toBe('24 novembre 2026 à 0600 UTC')
   })
 
+  it('finds the warning in a bulletin without a single blank line', () => {
+    // Fiji Met's Fiji waters bulletin of 24 Nov 18:00 UTC: heading, issue lines and warning run together.
+    const waters = parseBulletin(fixture('fqfj40.nffn-241800'), boat, 600)
+    expect(waters.warnings).toEqual(['A STRONG WIND WARNING REMAINS IN FORCE FOR ALL FIJI WATERS EXCEPT MAMANUCA WATERS.'])
+    expect(waters.severity).toBe('warn')
+  })
+
+  it('reads warnings from the warnings part and not from mentions in forecasts', () => {
+    // BoM: the warning is listed in Part 1; "outside of warning area" in Part 3 is no warning.
+    const au = parseBulletin(fixture('fqau22.ammc'), boat, 600)
+    expect(au.warnings).toEqual(['Melbourne Storm Force Wind Warning 11.'])
+    expect(au.severity).toBe('alarm')
+    // MetService NZ: "WARNINGS IN FORCE: 337"; "gales as in warning 337" in the forecast is a mention.
+    const nz = parseBulletin(fixture('fqps45.nzkl'), boat, 600)
+    expect(nz.warnings).toEqual(['WARNINGS IN FORCE: 337'])
+    expect(nz.severity).toBe('warn')
+    expect(parseBulletin('Southerly 20kt, gales as in warning 12.', boat, 600).warnings).toEqual([])
+    expect(parseBulletin('Part 1 - WARNINGS\nWARNINGS IN FORCE: NIL\n\nPart 2 - Situation', boat, 600).warnings).toEqual([])
+  })
+
+  it('keeps a warning with its body and its references', () => {
+    const colon = parseBulletin('GALE WARNING:\nNORTHWEST WINDS 35 KNOTS. STORM FORCE WINDS EXPECTED LATER.', boat, 600)
+    expect(colon.warnings).toEqual(['GALE WARNING: NORTHWEST WINDS 35 KNOTS. STORM FORCE WINDS EXPECTED LATER.'])
+    expect(colon.severity).toBe('alarm')
+    const issued = parseBulletin('GALE WARNING 12 ISSUED AT 0600 UTC\nNORTHWEST WINDS 35 KNOTS. STORM FORCE WINDS EXPECTED LATER.', boat, 600)
+    expect(issued.warnings).toHaveLength(1)
+    expect(issued.severity).toBe('alarm')
+    const ref = parseBulletin('A STRONG WIND WARNING REMAINS IN FORCE FOR ALL FIJI WATERS; SEE WARNING 12 FOR DETAILS.', boat, 600)
+    expect(ref.warnings).toHaveLength(1)
+    expect(parseBulletin('NO STORM WARNING FOR AREA NEAR 10S 179E.', boat, 600)).toMatchObject({ warnings: [], systems: [] })
+    expect(parseBulletin('NO STORM WARNING FOR AREA NEAR 10S 179E.', boat, 600).severity).toBeUndefined()
+    // A reference to a storm warning elsewhere does not make this warning an alarm.
+    expect(parseBulletin('A STRONG WIND WARNING REMAINS IN FORCE FOR FIJI; SEE STORM WARNING 12 FOR ANOTHER AREA.', boat, 600).severity).toBe('warn')
+    // A list of referenced warnings is still only a reference.
+    expect(parseBulletin('Southerly 20kt, gales as in warning 12, warning 13 and warning 14.', boat, 600).warnings).toEqual([])
+    // A nearby tropical system stays, even when it says no warning is in force.
+    const tc = parseBulletin('TROPICAL CYCLONE TEST NEAR 10S 179E. NO GALE WARNING CURRENTLY IN FORCE. STORM FORCE WINDS EXPECTED.', boat, 600)
+    expect(tc.systems).toHaveLength(1)
+    expect(tc.severity).toBe('alarm')
+  })
+
   it('splits paragraphs on blank lines and indented lines', () => {
     expect(paragraphs('A\nB\n\n C\nD\n')).toEqual(['A B', 'C D'])
   })
