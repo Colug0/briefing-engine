@@ -394,3 +394,26 @@ legend {
 .block-row.sev-alarm .block-icon {
   color: var(--bad);
 }
+.system {
+  margin: 0.35rem 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.ok-line {
+  margin: 0.2rem 0;
+  color: var(--good);
+}
+.as-of {
+  display: block;
+  margin-top: 0.3rem;
+}
+.storm-dir {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 2px solid;
+  border-radius: 50%;
+}

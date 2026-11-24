@@ -12,6 +12,8 @@ import {
   IconMapPin,
   IconMoon,
   IconRipple,
+  IconSpeakerphone,
+  IconStorm,
   IconSun,
   IconWind,
   type Icon
@@ -19,9 +21,11 @@ import {
 import type { ReactNode } from 'react'
 import type {
   BatteryData,
+  BulletinData,
   MoonData,
   PathData,
   PositionData,
+  StormData,
   SunData,
   TankData,
   TideData,
@@ -32,9 +36,9 @@ import type { Block } from '../api'
 import { BatteryGauge, MoonDisc, SunArc, TankGauge } from './graphics'
 import { TideCurve } from './TideCurve'
 
-function Row({ icon: I, label, children }: { icon: Icon; label: string; children: ReactNode }) {
+function Row({ icon: I, label, children, severity }: { icon: Icon; label: string; children: ReactNode; severity?: string }) {
   return (
-    <section className="block-row">
+    <section className={severity ? `block-row sev-${severity}` : 'block-row'}>
       <I className="block-icon" size={22} stroke={1.6} aria-hidden="true" />
       <div className="block-body">
         <p className="block-label">{label}</p>
@@ -127,6 +131,62 @@ function Tide({ d }: { d: TideData }) {
   )
 }
 
+/** "as of 06:00" for data shown from the offline cache. */
+function AsOf({ at }: { at?: string }) {
+  if (!at) return null
+  const t = new Date(at).toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' })
+  return <span className="muted as-of">offline · as of {t}</span>
+}
+
+function Bulletin({ d, severity, asOf }: { d: BulletinData; severity?: string; asOf?: string }) {
+  return (
+    <Row icon={IconSpeakerphone} label={d.issued ? `${d.title} · issued ${d.issued}` : d.title} severity={severity}>
+      {d.warnings.length === 0 && <p className="ok-line">No warnings.</p>}
+      {d.warnings.map((w, i) => (
+        <p className="warn" key={i}>
+          <IconAlertTriangle size={16} stroke={1.8} aria-hidden="true" /> {w}
+        </p>
+      ))}
+      {d.systems.map((s, i) => (
+        <p className="system" key={i}>
+          {s.distanceText && <strong>{s.distanceText} · </strong>}
+          {s.text}
+        </p>
+      ))}
+      <AsOf at={asOf} />
+    </Row>
+  )
+}
+
+const ALERT_TONE: Record<string, string> = { green: 'var(--good)', orange: 'var(--warn)', red: 'var(--bad)', unknown: 'var(--muted)' }
+
+function Storms({ d, severity, asOf }: { d: StormData; severity?: string; asOf?: string }) {
+  return (
+    <Row icon={IconStorm} label="Tropical cyclones (GDACS)" severity={severity}>
+      {d.storms.length === 0 && <p className="ok-line">None within {d.radiusNm} nm.</p>}
+      <div className="tiles">
+        {d.storms.map((s) => (
+          <div className="tile" key={s.name}>
+            <span className="storm-dir" style={{ borderColor: ALERT_TONE[s.alertLevel] }}>
+              {/* Points from the boat towards the storm. */}
+              <IconArrowUp size={20} stroke={2.2} color={ALERT_TONE[s.alertLevel]} style={{ transform: `rotate(${(s.bearing * 180) / Math.PI}deg)` }} aria-hidden="true" />
+            </span>
+            <div>
+              <strong>
+                {s.name} · {s.distanceNm} nm {s.compass}
+              </strong>
+              <span className="muted">{[s.positionText, `${s.alertLevel} alert`].join(' · ')}</span>
+              {s.description && <span className="muted">{s.description}</span>}
+              {s.updatedText && <span className="muted">updated {s.updatedText}</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+      <AsOf at={asOf} />
+    </Row>
+  )
+}
+
 const CONDITION: Record<WeatherCondition, { icon: Icon; tone: string }> = {
   clear: { icon: IconSun, tone: 'var(--sun)' },
   partly: { icon: IconCloud, tone: 'var(--sun)' },
@@ -189,7 +249,9 @@ const VIEWABLE: Record<string, (d: unknown) => boolean> = {
   sun: (d) => has(d, 'now'),
   moon: (d) => has(d, 'southern'),
   tides: (d) => has(d, 'points', true),
-  weather: (d) => has(d, 'days', true)
+  weather: (d) => has(d, 'days', true),
+  bulletin: (d) => has(d, 'warnings', true) && has(d, 'systems', true),
+  storms: (d) => has(d, 'storms', true)
 }
 
 /**
@@ -250,6 +312,12 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
         return
       case 'weather':
         out.push(<Weather key={key} d={b.data as WeatherBlockData} />)
+        return
+      case 'bulletin':
+        out.push(<Bulletin key={key} d={b.data as BulletinData} severity={b.severity} asOf={b.asOf} />)
+        return
+      case 'storms':
+        out.push(<Storms key={key} d={b.data as StormData} severity={b.severity} asOf={b.asOf} />)
         return
       default:
         out.push(

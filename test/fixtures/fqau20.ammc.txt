@@ -1,0 +1,41 @@
+FQAU20 AMMC 232000
+IDY10230
+SECURITE
+
+High Seas Forecast for North Eastern METAREA 10
+NORTHEASTERN AREA: EQUATOR TO 25S, 142E TO 170E
+
+Issued by the Australian Government Bureau of Meteorology
+For 24 hours commencing 2300 UTC 23 November 2026
+
+Part 1 Warnings
+Nil.
+
+Part 2 Situation at 231800 UTC
+Trough 04S155E 09S160E 17S160E. Forecast trough near 15S156E 09S157E 06S162E at
+250000UTC.
+
+Part 3 Forecast
+South of line 16S170E 19S154E:
+Southeast quarter winds 15/25 knots. Moderate to rough seas. Low to moderate
+swell.
+
+North of line 04S144E 02S161E:
+Westerly quarter winds 15/25 knots. Moderate to rough seas. Low swell.
+
+Remainder:
+Winds not exceeding 20 knots. Slight to moderate seas. Low swell.
+
+Scattered showers and isolated thunderstorms mainly north of 21S, heavy at
+times north of 5S. Visibility reducing below 2nm in precipitation.
+
+Please be aware
+Wind and wave forecasts are averages. Wind gusts can be 40 per cent stronger
+than the forecast, and stronger still in squalls and thunderstorms. Maximum
+waves can be twice the forecast height.
+
+WEATHER MELBOURNE
+
+The next routine forecast will be issued at 08:00 UTC Tuesday.
+
+

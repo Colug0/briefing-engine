@@ -121,3 +121,35 @@ export interface WeatherBlockData {
   days: WeatherDay[]
   warnings: string[]
 }
+
+export interface BulletinSystem {
+  text: string
+  distanceText?: string
+  tropical: boolean
+}
+
+export interface BulletinData {
+  title: string
+  issued?: string
+  url: string
+  warnings: string[]
+  systems: BulletinSystem[]
+}
+
+export interface StormItem {
+  name: string
+  alertLevel: 'green' | 'orange' | 'red' | 'unknown'
+  description?: string
+  positionText: string
+  distanceNm: number
+  /** Bearing from the vessel to the storm, in radians. */
+  bearing: number
+  compass: string
+  updatedText?: string
+  url?: string
+}
+
+export interface StormData {
+  radiusNm: number
+  storms: StormItem[]
+}
