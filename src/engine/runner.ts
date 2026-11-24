@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { Value } from 'typebox/value'
 import type { Registry } from './registry.js'
+import { maxSeverity } from './severity.js'
 import type { BlockResult, Briefing, Ctx, DeliveryResult, FireReason, RunResult } from './types.js'
 
 export interface RunOptions {
@@ -17,6 +18,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 const message = (error: unknown): string => (error instanceof Error ? error.message : String(error))
+
+/** Remembered internet data says how old it is, e.g. "(as of 06:00, 3 h ago)". */
+export function withAge(ctx: Ctx, text: string, asOf: string | undefined): string {
+  if (!asOf) return text
+  const minutes = Math.round((ctx.now().getTime() - Date.parse(asOf)) / 60_000)
+  if (!(minutes >= 10)) return text
+  const age = minutes < 90 ? `${minutes} min ago` : `${Math.round(minutes / 60)} h ago`
+  return `${text} (as of ${ctx.time(asOf)}, ${age})`
+}
 
 /**
  * Build a briefing: all content blocks in parallel, each with its own timeout,
@@ -39,7 +49,7 @@ export async function runBriefing(
         // Settings added in a later version are missing from briefings saved before it.
         const config = Value.Default(type.schema as never, structuredClone(part.config ?? {})) as Record<string, unknown>
         const block = await withTimeout(type.fetch(ctx, config), options.contentTimeoutMs)
-        return { type: part.type, ...block }
+        return { type: part.type, ...block, text: withAge(ctx, block.text, block.asOf) }
       } catch (error) {
         ctx.log.debug(`${briefing.name}: ${type.title} failed: ${message(error)}`)
         return { type: part.type, title: type.title, text: `${type.title}: not available (${message(error)}).`, error: message(error) }
@@ -53,6 +63,7 @@ export async function runBriefing(
     briefingName: briefing.name,
     at: ctx.now().toISOString(),
     reason,
+    severity: maxSeverity(blocks.map((b) => b.severity)),
     blocks,
     deliveries: []
   }
@@ -63,8 +74,9 @@ export async function runBriefing(
     if (!type) result.error = 'unknown type'
     else {
       try {
-        await type.deliver(ctx, Value.Default(type.schema as never, structuredClone(part.config ?? {})) as Record<string, unknown>, run)
+        const note = await type.deliver(ctx, Value.Default(type.schema as never, structuredClone(part.config ?? {})) as Record<string, unknown>, run)
         result.ok = true
+        if (note) result.note = note
       } catch (error) {
         result.error = message(error)
         ctx.log.error(`${briefing.name}: delivery ${type.title} failed: ${result.error}`)

@@ -31,6 +31,8 @@ export interface Block {
   text: string
   data?: unknown
   error?: string
+  severity?: 'warn' | 'alarm'
+  asOf?: string
 }
 
 export interface Run {
@@ -39,8 +41,9 @@ export interface Run {
   briefingName: string
   at: string
   reason: string
+  severity?: 'warn' | 'alarm'
   blocks: Block[]
-  deliveries: Array<{ type: string; ok: boolean; error?: string }>
+  deliveries: Array<{ type: string; ok: boolean; error?: string; note?: string }>
 }
 
 export interface Status {

@@ -365,3 +365,32 @@ legend {
 .warn svg {
   vertical-align: -3px;
 }
+.run.sev-warn {
+  border-color: var(--warn);
+}
+.run.sev-alarm {
+  border-color: var(--bad);
+  border-width: 2px;
+}
+.badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  vertical-align: middle;
+  color: var(--bg);
+}
+.badge.sev-warn {
+  background: var(--warn);
+}
+.badge.sev-alarm {
+  background: var(--bad);
+}
+.block-row.sev-warn .block-icon {
+  color: var(--warn);
+}
+.block-row.sev-alarm .block-icon {
+  color: var(--bad);
+}

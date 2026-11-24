@@ -12,6 +12,7 @@ import { tankContent } from './contents/tanks.js'
 import { tideContent } from './contents/tides.js'
 import { weatherContent } from './contents/weather.js'
 import { notificationDelivery } from './deliveries/notification.js'
+import { ntfyDelivery } from './deliveries/ntfy.js'
 import { webappDelivery } from './deliveries/webapp.js'
 import { Registry } from './engine/registry.js'
 import { pathTrigger } from './triggers/path.js'
@@ -21,6 +22,6 @@ export function createRegistry(): Registry {
   return new Registry({
     triggers: [scheduleTrigger, pathTrigger],
     contents: [positionContent, batteryContent, tankContent, sunContent, moonContent, tideContent, weatherContent, pathContent],
-    deliveries: [webappDelivery, notificationDelivery]
+    deliveries: [webappDelivery, notificationDelivery, ntfyDelivery]
   })
 }

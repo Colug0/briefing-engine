@@ -1,3 +1,4 @@
+import { INTERNET_PATH, internetState, mayUseInternet } from '../src/engine/internet.js'
 import type { Ctx, WeatherApiLike } from '../src/engine/types.js'
 import { fallbackDisplay } from '../src/engine/units.js'
 import { formatDate, formatTime } from '../src/engine/time.js'
@@ -27,11 +28,19 @@ export interface FakeCtx extends Ctx {
   clock: { now: Date }
   emit(path: string, value: unknown): void
   errors: string[]
+  cache: Map<string, { value: unknown; at: Date }>
+  requests: Array<{ url: string; init?: RequestInit }>
 }
 
 export function fakeCtx(
   values: Record<string, unknown> = {},
-  opts: { offsetMin?: number; now?: string; weather?: WeatherApiLike; resources?: Record<string, Record<string, unknown>> } = {}
+  opts: {
+    offsetMin?: number
+    now?: string
+    weather?: WeatherApiLike
+    resources?: Record<string, Record<string, unknown>>
+    http?: (url: string, init?: RequestInit) => Promise<Response>
+  } = {}
 ): FakeCtx {
   const map = new Map(Object.entries(values))
   const listeners = new Map<string, Array<(v: unknown) => void>>()
@@ -39,7 +48,11 @@ export function fakeCtx(
   const clock = { now: new Date(opts.now ?? '2026-11-23T00:00:00Z') }
   const offset = opts.offsetMin ?? 720
   const errors: string[] = []
+  const cache = new Map<string, { value: unknown; at: Date }>()
+  const requests: Array<{ url: string; init?: RequestInit }> = []
   const ctx: FakeCtx = {
+    cache,
+    requests,
     values: map,
     published: [],
     listeners,
@@ -60,6 +73,32 @@ export function fakeCtx(
     weather: () => opts.weather,
     history: async () => undefined,
     listResources: async (type) => opts.resources?.[type],
+    internet: () => internetState(map.get(INTERNET_PATH)),
+    async http(url, init) {
+      requests.push({ url, init })
+      if (!opts.http) throw new Error('no network in tests')
+      return opts.http(url, init)
+    },
+    async cached(key, load) {
+      const recent = () => {
+        const hit = cache.get(key)
+        return hit && clock.now.getTime() - hit.at.getTime() <= 24 * 3_600_000 ? hit : undefined
+      }
+      if (!mayUseInternet(ctx.internet())) {
+        const hit = recent()
+        if (!hit) throw new Error('offline and no recent data')
+        return { value: hit.value as never, at: hit.at, fromCache: true }
+      }
+      try {
+        const value = await load()
+        cache.set(key, { value, at: clock.now })
+        return { value, at: clock.now, fromCache: false }
+      } catch (error) {
+        const hit = recent()
+        if (!hit) throw error
+        return { value: hit.value as never, at: hit.at, fromCache: true }
+      }
+    },
     publish(path, value) {
       ctx.published.push({ path, value })
     },

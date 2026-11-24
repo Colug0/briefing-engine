@@ -206,7 +206,7 @@ describe('registry', () => {
     const d = createRegistry().describe()
     expect(d.triggers.map((t) => t.id)).toEqual(['schedule', 'path'])
     expect(d.contents.map((t) => t.id)).toEqual(['position', 'battery', 'tanks', 'sun', 'moon', 'tides', 'weather', 'path'])
-    expect(d.deliveries.map((t) => t.id)).toEqual(['webapp', 'notification'])
+    expect(d.deliveries.map((t) => t.id)).toEqual(['webapp', 'notification', 'ntfy'])
     for (const t of [...d.triggers, ...d.contents, ...d.deliveries]) expect(t.schema).toMatchObject({ type: 'object' })
   })
 })

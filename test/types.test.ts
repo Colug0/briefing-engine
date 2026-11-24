@@ -380,7 +380,7 @@ describe('notification delivery', () => {
   it('raises a notification with the configured state', async () => {
     const ctx = fakeCtx()
     const run = { id: 'r1', briefingId: 'a1b2-c3', briefingName: 'Morning' } as RunResult
-    await notificationDelivery.deliver(ctx, { state: 'alert', method: ['visual', 'sound'] }, run)
+    await notificationDelivery.deliver(ctx, { state: 'alert', method: ['visual', 'sound'], escalate: true }, run)
     expect(notificationPath('a1b2-c3')).toBe('notifications.briefing.a1b2c3')
     expect(ctx.published).toEqual([
       {
