@@ -22,6 +22,7 @@ const num = (v: unknown): number | undefined => (isNum(v) ? v : undefined)
 
 export const batteryContent: ContentType<Static<typeof BatterySchema>> = {
   id: 'battery',
+  emoji: '🔋',
   title: 'Batteries',
   description: 'State of charge, voltage, current and time remaining.',
   schema: BatterySchema,
@@ -49,6 +50,10 @@ export const batteryContent: ContentType<Static<typeof BatterySchema>> = {
       (i) => `${i.name}: ${joinParts([i.socText, i.voltageText, i.currentText, i.remainingText]) || 'no data'}`
     )
     const data: BatteryData = { items, low: config.lowPercent / 100, high: config.highPercent / 100 }
-    return { title: 'Batteries', text: `Batteries. ${lines.join('. ')}.`, data }
+    const summaryItems = items.map((i) => {
+      const parts = [i.socText, i.voltageText, i.currentText, i.remainingText].filter(Boolean)
+      return [i.name, ...(parts.length ? parts : ['no data'])].join(' · ')
+    })
+    return { title: 'Batteries', text: `Batteries. ${lines.join('. ')}.`, summary: 'Batteries', items: summaryItems, data }
   }
 }

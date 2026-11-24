@@ -66,6 +66,7 @@ export function tankKind(type: string): TankKind {
 
 export const tankContent: ContentType<Static<typeof TankSchema>> = {
   id: 'tanks',
+  emoji: '⛽',
   title: 'Tanks',
   description: 'Level and volume of your tanks, optionally with what was used yesterday.',
   schema: TankSchema,
@@ -112,6 +113,12 @@ export const tankContent: ContentType<Static<typeof TankSchema>> = {
       return `${i.name}: ${now}${i.usedYesterdayText ? `, used yesterday ${i.usedYesterdayText}` : ''}`
     })
     const data: TankData = { items, note }
-    return { title: 'Tanks', text: `Tanks. ${lines.join('. ')}.${note ? ` ${note}` : ''}`, data }
+    const summaryItems = items.map((i) =>
+      [i.name, i.levelText ? (i.volumeText ? `${i.levelText} (${i.volumeText})` : i.levelText) : i.volumeText, i.usedYesterdayText && `used yesterday ${i.usedYesterdayText}`]
+        .filter(Boolean)
+        .join(' · ')
+    )
+    if (note) summaryItems.push(note)
+    return { title: 'Tanks', text: `Tanks. ${lines.join('. ')}.${note ? ` ${note}` : ''}`, summary: 'Tanks', items: summaryItems, data }
   }
 }

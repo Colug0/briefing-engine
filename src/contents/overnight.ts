@@ -46,6 +46,7 @@ const AH = (ah: number) => `${Math.round(ah)} Ah`
 
 export const overnightContent: ContentType<Config> = {
   id: 'overnight',
+  emoji: '🌙',
   title: 'Battery overnight',
   description: 'State of charge, amp hours used and lowest voltage of a battery over the night, from the History API.',
   schema: Schema,
@@ -95,6 +96,7 @@ export const overnightContent: ContentType<Config> = {
     return {
       title: 'Battery overnight',
       text: `${name} since ${data.fromText}: ${parts.join(', ')}.`,
+      summary: `${name} since ${data.fromText}: ${parts.join(' · ')}`,
       data
     }
   }

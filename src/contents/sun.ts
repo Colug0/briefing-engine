@@ -7,6 +7,7 @@ const SUN = 'environment.sunlight.times'
 
 export const sunContent: ContentType<{ twilight: boolean }> = {
   id: 'sun',
+  emoji: '🌅',
   title: 'Sun',
   description: 'Sunrise and sunset at the vessel (from signalk-derived-data).',
   schema: Type.Object({ twilight: Type.Boolean({ title: 'Include dawn and dusk', default: true }) }),
@@ -33,6 +34,7 @@ export const sunContent: ContentType<{ twilight: boolean }> = {
       dawnText: dawn,
       duskText: dusk
     }
-    return { title: 'Sun', text: `${text}.`, data }
+    const summary = `${rise ?? '–'} → ${set ?? '–'}${dawn || dusk ? ` (dawn ${dawn ?? '–'}, dusk ${dusk ?? '–'})` : ''}`
+    return { title: 'Sun', text: `${text}.`, summary, data }
   }
 }

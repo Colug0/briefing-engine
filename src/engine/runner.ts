@@ -49,10 +49,10 @@ export async function runBriefing(
         // Settings added in a later version are missing from briefings saved before it.
         const config = Value.Default(type.schema as never, structuredClone(part.config ?? {})) as Record<string, unknown>
         const block = await withTimeout(type.fetch(ctx, config), options.contentTimeoutMs)
-        return { type: part.type, ...block, text: withAge(ctx, block.text, block.asOf) }
+        return { type: part.type, emoji: type.emoji, ...block, text: withAge(ctx, block.text, block.asOf), summary: block.summary && withAge(ctx, block.summary, block.asOf) }
       } catch (error) {
         ctx.log.debug(`${briefing.name}: ${type.title} failed: ${message(error)}`)
-        return { type: part.type, title: type.title, text: `${type.title}: not available (${message(error)}).`, error: message(error) }
+        return { type: part.type, title: type.title, emoji: type.emoji, text: `${type.title}: not available (${message(error)}).`, error: message(error) }
       }
     })
   )

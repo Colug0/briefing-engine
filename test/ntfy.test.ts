@@ -1,7 +1,9 @@
 import Type from 'typebox'
 import { describe, expect, it } from 'vitest'
 import { notificationDelivery } from '../src/deliveries/notification.js'
-import { flushPending, ntfyDelivery, priorityFor } from '../src/deliveries/ntfy.js'
+import { moonEmoji } from '../src/contents/moon.js'
+import { fitBytes, flushPending, ntfyDelivery, priorityFor } from '../src/deliveries/ntfy.js'
+import { markdownLayout, plainLayout } from '../src/engine/layout.js'
 import { INTERNET_PATH } from '../src/engine/internet.js'
 import { Registry } from '../src/engine/registry.js'
 import { runBriefing, withAge } from '../src/engine/runner.js'
@@ -29,6 +31,7 @@ const config = (over: Partial<NtfyConfig> = {}): NtfyConfig => ({
   internet: target('https://ntfy.sh', false),
   priority: 3,
   escalate: true,
+  markdown: false,
   ...over
 })
 
@@ -44,8 +47,9 @@ describe('ntfy delivery', () => {
     expect(JSON.parse(String(ctx.requests[0]!.init!.body))).toEqual({
       topic: 'boat',
       title: 'Morning',
-      message: 'Sunrise 05:33.\n\nCyclone near.',
+      message: 'Sunrise 05:33.\n⚠️ Cyclone near.',
       priority: 4,
+      tags: ['warning'],
       click: 'http://boat.local/briefing-engine/'
     })
   })
@@ -128,6 +132,46 @@ describe('ntfy delivery', () => {
     expect(priorityFor(5, 'warn', true)).toBe(5)
     expect(priorityFor(2, 'alarm', false)).toBe(2)
     expect(priorityFor(2, undefined, true)).toBe(2)
+  })
+})
+
+describe('layout for push messages', () => {
+  const layoutRun = run({
+    severity: 'warn',
+    blocks: [
+      { type: 'battery', title: 'Batteries', text: 'Batteries. House: 87%.', emoji: '🔋', summary: 'Batteries', items: ['House · 87% · 12.9 V', 'Starter · 12.7 V'] },
+      { type: 'moon', title: 'Moon', text: 'Moon: full.', emoji: '🌕', summary: 'full moon · 100% lit' },
+      { type: 'bulletin', title: 'Bulletin', text: '…', emoji: '📢', severity: 'warn', summary: 'Fiji Met', items: ['⚠️ Strong wind warning'] },
+      { type: 'tides', title: 'Tides', text: 'Tides: not available (no data).', emoji: '🌊', error: 'no data', items: ['x'] }
+    ]
+  })
+
+  it('writes one line per block with its parts below', () => {
+    expect(plainLayout(layoutRun)).toBe(
+      ['🔋 Batteries', '  • House · 87% · 12.9 V', '  • Starter · 12.7 V', '🌕 full moon · 100% lit', '📢 ⚠️ Fiji Met', '  • ⚠️ Strong wind warning', '🌊 Tides: not available (no data).'].join('\n')
+    )
+  })
+
+  it('writes Markdown with bold headings and lists when asked', async () => {
+    expect(markdownLayout(layoutRun)).toBe(
+      ['**🔋 Batteries**\n- House · 87% · 12.9 V\n- Starter · 12.7 V', '🌕 full moon · 100% lit', '**📢 ⚠️ Fiji Met**\n- ⚠️ Strong wind warning', '🌊 Tides: not available \\(no data\\).']
+        .join('\n\n')
+        .replace('\\(no data\\)', '(no data)')
+    )
+    const ctx = fakeCtx({}, { http: ok })
+    await ntfyDelivery.deliver(ctx, config({ markdown: true }), layoutRun)
+    expect(JSON.parse(String(ctx.requests[0]!.init!.body))).toMatchObject({ markdown: true, tags: ['warning'] })
+  })
+
+  it('cuts long messages by bytes, not inside an emoji', () => {
+    const cut = fitBytes('⛽'.repeat(2000), 4000)
+    expect(new TextEncoder().encode(cut).length).toBeLessThanOrEqual(4000)
+    expect(cut.endsWith('⛽…')).toBe(true)
+    expect(fitBytes('short', 4000)).toBe('short')
+  })
+
+  it('shows the moon as it looks', () => {
+    expect([0, 0.25, 0.5, 0.75, 0.97].map((phase) => moonEmoji({ phase, southern: false }))).toEqual(['🌑', '🌓', '🌕', '🌗', '🌑'])
   })
 })
 

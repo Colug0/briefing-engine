@@ -3,8 +3,17 @@ import type { ContentType } from '../engine/types.js'
 import type { MoonData } from './data.js'
 import { isNum, joinParts, timeAt } from './helpers.js'
 
+const PHASES = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘']
+
+/** The moon as it looks, from its phase (0 new … 0.5 full … 1). */
+export function moonEmoji(d: MoonData): string | undefined {
+  if (d.phase === undefined) return undefined
+  return PHASES[Math.round((((d.phase % 1) + 1) % 1) * 8) % 8]
+}
+
 export const moonContent: ContentType<Record<string, never>> = {
   id: 'moon',
+  emoji: '🌙',
   title: 'Moon',
   description: 'Moon phase, illumination, moonrise and moonset (from signalk-derived-data).',
   schema: Type.Object({}),
@@ -37,6 +46,6 @@ export const moonContent: ContentType<Record<string, never>> = {
       always,
       southern: isNum(position?.latitude) && position.latitude < 0
     }
-    return { title: 'Moon', text: `Moon: ${parts}.`, data }
+    return { title: 'Moon', text: `Moon: ${parts}.`, summary: parts.replace(/, /g, ' · '), emoji: moonEmoji(data), data }
   }
 }

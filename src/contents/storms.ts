@@ -74,6 +74,7 @@ export function stormsNear(json: unknown, vessel: Position, radiusNm: number, no
 
 export const stormContent: ContentType<Config> = {
   id: 'storms',
+  emoji: '🌀',
   title: 'Tropical cyclones (GDACS)',
   description: 'Tropical cyclones near the vessel from GDACS, with distance and direction.',
   schema: Schema,
@@ -104,6 +105,11 @@ export const stormContent: ContentType<Config> = {
     return {
       title: 'Tropical cyclones',
       text: `Tropical cyclones. ${text}`,
+      summary: storms.length ? 'Tropical cyclones' : `No tropical cyclones within ${config.radiusNm} nm`,
+      items: storms.map(
+        (s) =>
+          `${s.name} · ${s.distanceNm} nm ${s.compass} · ${s.alertLevel} alert${s.description ? ` · ${s.description}` : ''}${s.updatedText ? ` · updated ${s.updatedText}` : ''}`
+      ),
       data,
       severity,
       asOf: got.fromCache ? got.at.toISOString() : undefined
