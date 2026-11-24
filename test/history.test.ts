@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ampHours, overnightContent, windowStart } from '../src/contents/overnight.js'
 import { tankContent, yesterday } from '../src/contents/tanks.js'
-import { totalUse } from '../src/engine/history.js'
+import { readFileSync } from 'node:fs'
+import { medianSmooth, totalUse } from '../src/engine/history.js'
 import type { HistoryApiLike } from '../src/engine/types.js'
 import { fakeCtx } from './fake.js'
 
@@ -45,14 +46,25 @@ describe('sums from history', () => {
 
   it('counts use as start minus end plus fills, and ignores the sender wobbling', () => {
     // Used 0.02, filled 0.07 at once, used 0.01 more.
-    expect(totalUse([0.1, 0.09, null, 0.08, 0.15, 0.14], 0.005)).toBeCloseTo(0.03)
+    const steps = (...levels: number[]) => levels.flatMap((l) => [l, l, l])
+    expect(totalUse(steps(0.1, 0.09, 0.08, 0.15, 0.14), 0.005)).toBeCloseTo(0.03)
     // A fill spread over two buckets counts once.
-    expect(totalUse([0.1, 0.08, 0.12, 0.15, 0.14], 0.005)).toBeCloseTo(0.03)
+    expect(totalUse(steps(0.1, 0.08, 0.12, 0.15, 0.14), 0.005)).toBeCloseTo(0.03)
     // Wobble of ±3 L around 110 L is no use at all.
     expect(totalUse([0.111, 0.114, 0.111, 0.114, 0.111], 0.0045)).toBeCloseTo(0)
     expect(totalUse([0.1], 0.01)).toBeUndefined()
+    // A real fuel sender's day at about 114 L, with single readings up to 150 L: hardly any use, no fills.
+    const day = JSON.parse(readFileSync(new URL('./fixtures/fuel-volume-day.json', import.meta.url), 'utf8')) as Array<number | null>
+    // 8 % of its 150 L tank is the fill threshold the tanks block uses.
+    expect(totalUse(day, 0.012)! * 1000).toBeLessThan(1)
+    expect(medianSmooth([1, 1, 9, 1, 1])).toEqual([1, 1, 1, 1, 1])
+    // A clean steady fall keeps its first and last reading.
+    expect(totalUse([0.15, 0.14, 0.13, 0.12, 0.11], 0.012)).toBeCloseTo(0.04)
+    // A rise below the threshold after a fill has peaked is wobble, not more fill.
+    // Used back down to 0.1 afterwards: 0.02 of use, which counting the wobble as fill would make 0.028.
+    expect(totalUse([0.1, 0.1, 0.1, 0.12, 0.12, 0.12, 0.12, 0.128, 0.128, 0.128, 0.1, 0.1, 0.1], 0.012)).toBeCloseTo(0.02)
     // A fill is followed to its peak: used 0.02, filled 0.06.
-    expect(totalUse([0.1, 0.08, 0.12, 0.14], 0.03)).toBeCloseTo(0.02)
+    expect(totalUse([0.1, 0.1, 0.1, 0.08, 0.08, 0.08, 0.12, 0.14, 0.14, 0.14, 0.14], 0.03)).toBeCloseTo(0.02)
   })
 })
 

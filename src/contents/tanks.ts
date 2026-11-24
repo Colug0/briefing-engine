@@ -18,6 +18,9 @@ const TankSchema = Type.Object({
   })
 })
 
+/** A rise of more than this share of the tank counts as filling it. */
+const FILL_SHARE = 0.08
+
 /** Yesterday's use is extra: the current readings must not wait for a slow history. */
 const HISTORY_WAIT_MS = 8_000
 
@@ -39,12 +42,14 @@ async function usedYesterday(ctx: Ctx, ids: string[]): Promise<Record<string, st
   const s = await historyValues(ctx, paths, from, to, 900)
   const out: Record<string, string> = {}
   ids.forEach((id, i) => {
-    // A fill is a rise of more than 3 % of the tank.
+    // A fill is a rise of more than 8 % of the tank. Senders step between fixed
+    // readings several litres apart (one boat's: 105, 108, 110.8, 113.7 L), and a
+    // smaller threshold takes those steps for fills.
     const capacity = ctx.getSelf(`tanks.${id}.capacity`)
     const volumes = s.columns[2 * i] ?? []
     const biggest = Math.max(0, ...volumes.filter((v): v is number => v !== null))
-    const volume = totalUse(volumes, 0.03 * (isNum(capacity) ? capacity : biggest))
-    const level = totalUse(s.columns[2 * i + 1] ?? [], 0.03)
+    const volume = totalUse(volumes, FILL_SHARE * (isNum(capacity) ? capacity : biggest))
+    const level = totalUse(s.columns[2 * i + 1] ?? [], FILL_SHARE)
     const text = volume !== undefined ? shownAs(ctx, `tanks.${id}.currentVolume`, volume) : shownAs(ctx, `tanks.${id}.currentLevel`, level)
     if (text) out[id] = text
   })

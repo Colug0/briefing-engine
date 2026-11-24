@@ -69,6 +69,21 @@ export function paragraphs(text: string): string[] {
   return out.filter(Boolean)
 }
 
+/**
+ * When a bulletin was issued, in the bulletin's own words. The GTS form
+ * "NOV 240800 UTC" wins: some services repeat the heading around it.
+ */
+export function issuedAt(text: string): string | undefined {
+  const flat = text.replace(/\s+/g, ' ')
+  // \p{L} lookarounds instead of \b, so "Émis" counts as a word too.
+  const marker = String.raw`(?<!\p{L})(?:issued|émis)(?!\p{L})`
+  const gts = flat.match(new RegExp(String.raw`${marker}[^.]*?\b([A-Z]{3}\s+\d{6}\s*UTC)\b`, 'iu'))?.[1]
+  if (gts) return gts
+  // Only the time stamp itself: a date, an optional "at"/"à", and a UTC time, in either order.
+  const stamp = String.raw`\d{1,2}\s+\p{L}{3,9}\s+\d{4}(?:\s+(?:at|à)?\s*\d{2}:?\d{2}\s*UTC)?|\d{2}:?\d{2}\s*UTC(?:\s+\d{1,2}\s+\p{L}{3,9}\s+\d{4})?`
+  return flat.match(new RegExp(String.raw`${marker}[^.]*?(${stamp})`, 'iu'))?.[1]?.trim()
+}
+
 export interface ParsedBulletin {
   issued?: string
   warnings: string[]
@@ -83,8 +98,7 @@ export interface ParsedBulletin {
  */
 export function parseBulletin(text: string, vessel: Position | undefined, radiusNm: number): ParsedBulletin {
   const paras = paragraphs(text)
-  const issuedLine = paras.find((p) => /\bissued\b|\bémis\b|\bdu \d/i.test(p))
-  const issued = issuedLine?.match(/(?:issued|émis)[^.]*?(\d{1,2}\s*\w{3}[^.]*?UTC|\w{3}\s*\d{6}\s*UTC|\d{4}\s*UTC[^.]*)/i)?.[1]
+  const issued = issuedAt(text)
   const warnings: string[] = []
   const systems: BulletinSystem[] = []
   let severeNearby = false

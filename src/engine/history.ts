@@ -53,17 +53,35 @@ export const minOf = (xs: Array<number | null>): number | undefined => {
 }
 
 /**
- * What a tank used: start minus end plus what was filled in. Only a rise of
- * more than `refill` counts as filling; smaller ups and downs are the sender
+ * Running median over five readings. Tank senders throw single readings far
+ * off (one boat's fuel sender read 150 L for one quarter hour in a day at
+ * 114 L); the median drops those and keeps real changes that last.
+ */
+export function medianSmooth(ns: number[], width = 5): number[] {
+  if (ns.length < width) return ns
+  const half = Math.floor(width / 2)
+  return ns.map((_, i) => {
+    // The window shrinks symmetrically towards the ends, so the first and last
+    // readings stay what they were: they are the balance of the period.
+    const r = Math.min(half, i, ns.length - 1 - i)
+    const win = ns.slice(i - r, i + r + 1).sort((a, b) => a - b)
+    return win[r]!
+  })
+}
+
+/**
+ * What a tank used: start minus end plus what was filled in. A rise of more
+ * than `refill` starts a fill, which then runs on to the peak of that rise; smaller ups and downs are the sender
  * wobbling, and summing every drop would count that wobble as use.
  */
 export function totalUse(xs: Array<number | null>, refill: number): number | undefined {
-  const ns = xs.filter((x): x is number => x !== null)
+  const ns = medianSmooth(xs.filter((x): x is number => x !== null))
   if (ns.length < 2) return undefined
   let filled = 0
   // Compare against the lowest value since the last fill, so a fill spread over buckets counts once.
   let low = ns[0]!
-  // Once a rise is a fill, follow it to its peak.
+  // Once a rise is a fill, follow it to its peak while the readings keep rising;
+  // the first reading that does not rise ends it, so later wobble is no fill.
   let filling = false
   for (let i = 1; i < ns.length; i++) {
     const v = ns[i]!
