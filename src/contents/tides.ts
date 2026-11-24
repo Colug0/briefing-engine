@@ -39,6 +39,7 @@ function pathExtremes(ctx: Ctx): Extreme[] {
 
 export const tideContent: ContentType<Record<string, never>> = {
   id: 'tides',
+  emoji: '🌊',
   title: 'Tides',
   description: 'Tide now and the next high and low water, with a curve for the day (from signalk-tides).',
   schema: Type.Object({}),
@@ -79,6 +80,12 @@ export const tideContent: ContentType<Record<string, never>> = {
       nowText,
       points
     }
-    return { title: 'Tides', text: `Tide${at}${head ? `: ${head}` : ''}. ${list.join(', ')}.`, data }
+    return {
+      title: 'Tides',
+      text: `Tide${at}${head ? `: ${head}` : ''}. ${list.join(', ')}.`,
+      summary: `Tide${at}${head ? `: ${head.replace(/, /g, ' · ')}` : ''}`,
+      items: next.map((p) => `${p.high ? 'High' : 'Low'} ${p.timeText} · ${p.levelText}`),
+      data
+    }
   }
 }

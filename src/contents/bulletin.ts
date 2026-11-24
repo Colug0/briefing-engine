@@ -191,6 +191,7 @@ export function parseBulletin(text: string, vessel: Position | undefined, radius
 
 export const bulletinContent: ContentType<Config> = {
   id: 'bulletin',
+  emoji: '📢',
   title: 'Marine weather bulletin',
   description: 'Warnings and nearby weather systems from an official marine bulletin (GMDSS), fetched from NOAA TGFTP.',
   schema: Schema,
@@ -216,6 +217,11 @@ export const bulletinContent: ContentType<Config> = {
     return {
       title: 'Marine bulletin',
       text: lines.join(' '),
+      summary: `${title}${parsed.issued ? ` · issued ${parsed.issued}` : ''}`,
+      items: [
+        ...(parsed.warnings.length ? parsed.warnings.map((w) => `⚠️ ${w}`) : ['No warnings']),
+        ...parsed.systems.map((s) => (s.distanceText ? `${s.distanceText} · ${s.text}` : s.text))
+      ],
       data,
       severity: parsed.severity,
       asOf: got.fromCache ? got.at.toISOString() : undefined

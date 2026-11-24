@@ -19,6 +19,12 @@ export interface Block {
   severity?: Severity
   /** When the data was fetched, if it came from the offline cache. */
   asOf?: string
+  /** One short line for push messages; `text` when missing. */
+  summary?: string
+  /** Parts shown as lines below the summary, e.g. one per battery. */
+  items?: string[]
+  /** Overrides the type's emoji, e.g. the moon's phase or the day's weather. */
+  emoji?: string
 }
 
 /** A value converted to the unit the server's unit preferences choose. */
@@ -119,6 +125,8 @@ export interface TriggerType<C = Record<string, unknown>> {
 export interface ContentType<C = Record<string, unknown>> {
   id: string
   title: string
+  /** Leads the block's line in push messages. */
+  emoji?: string
   description: string
   schema: TSchema
   fetch(ctx: Ctx, config: C): Promise<Block>

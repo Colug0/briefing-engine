@@ -26,6 +26,19 @@ const UNIT = {
 /** Hourly points only add waves; a slow answer must not cost the daily forecast. */
 const POINTS_WAIT_MS = 5_000
 
+/** The day's symbol in push messages. */
+export const CONDITION_EMOJI: Record<WeatherCondition, string> = {
+  clear: '☀️',
+  partly: '⛅',
+  cloudy: '☁️',
+  fog: '🌫️',
+  drizzle: '🌦️',
+  rain: '🌧️',
+  showers: '🌦️',
+  thunder: '⛈️',
+  snow: '❄️'
+}
+
 /** Gusts from 30 kn get their own wind symbol. */
 const WINDY_GUST = 15.4
 
@@ -183,6 +196,7 @@ export function describeDay(day: WeatherDay): string {
 
 export const weatherContent: ContentType<Config> = {
   id: 'weather',
+  emoji: '⛅',
   title: 'Weather forecast',
   description: "Forecast for the vessel's position from the Signal K weather API (needs a weather provider plugin).",
   schema: Schema,
@@ -230,6 +244,10 @@ export const weatherContent: ContentType<Config> = {
     }
     const data: WeatherBlockData = { days, warnings }
     const text = [...lines, ...warnings.map((w) => `Warning: ${w}`)].join('. ')
-    return { title: 'Weather', text: `Weather. ${text}.`, data }
+    const items = [
+      ...days.map((d) => `${CONDITION_EMOJI[d.condition]} ${d.name}: ${describeDay(d).slice(d.name.length + 2).replace(/, /g, ' · ')}`),
+      ...warnings.map((w) => `⚠️ ${w}`)
+    ]
+    return { title: 'Weather', text: `Weather. ${text}.`, summary: 'Weather', items, emoji: CONDITION_EMOJI[days[0]!.condition], data }
   }
 }

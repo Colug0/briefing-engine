@@ -1,6 +1,6 @@
 import Type, { type Static } from 'typebox'
 import { INTERNET_PATH, mayUseInternet } from '../engine/internet.js'
-import { briefingText } from '../engine/runner.js'
+import { markdownLayout, plainLayout } from '../engine/layout.js'
 import type { Severity } from '../engine/severity.js'
 import type { Ctx, DeliveryType, RunResult } from '../engine/types.js'
 
@@ -26,6 +26,11 @@ const Schema = Type.Object({
   internet: Target('Server on the internet', 'Sent when signalk-internet reports a connection; until then the newest briefing waits (at most 24 h).'),
   priority: Type.Integer({ title: 'Priority', description: '1 (min) to 5 (max); ntfy’s default is 3.', default: 3, minimum: 1, maximum: 5 }),
   escalate: Type.Boolean({ title: 'Raise the priority for warnings', description: 'Warnings in the briefing raise it to at least 4, alarms to 5.', default: true }),
+  markdown: Type.Boolean({
+    title: 'Markdown',
+    description: 'Bold headings and lists. Shown by the ntfy Android app and web app; the iOS app shows the marks as they are.',
+    default: false
+  }),
   click: Type.Optional(Type.String({ title: 'Link when tapped', description: 'e.g. the address of this webapp on board' }))
 })
 type Config = Static<typeof Schema>
@@ -34,6 +39,9 @@ type TargetConfig = Config['local']
 export interface NtfyMessage {
   server: string
   topic: string
+  markdown?: boolean
+  /** ntfy turns emoji short codes into emojis before the title. */
+  tags?: string[]
   token?: string
   title: string
   message: string
@@ -87,6 +95,8 @@ export async function publish(ctx: Ctx, msg: NtfyMessage): Promise<void> {
         title: msg.title,
         message: msg.message,
         priority: msg.priority,
+        ...(msg.markdown ? { markdown: true } : {}),
+        ...(msg.tags?.length ? { tags: msg.tags } : {}),
         ...(msg.click ? { click: msg.click } : {})
       })
     })
@@ -103,7 +113,7 @@ function usable(t: TargetConfig): boolean {
 }
 
 function messageFor(t: TargetConfig, config: Config, run: RunResult): NtfyMessage {
-  const body = briefingText(run).split('\n\n').slice(1).join('\n\n')
+  const body = config.markdown ? markdownLayout(run) : plainLayout(run)
   return {
     server: t.server.trim(),
     topic: t.topic.trim(),
@@ -111,6 +121,9 @@ function messageFor(t: TargetConfig, config: Config, run: RunResult): NtfyMessag
     title: run.briefingName,
     message: body.length > MAX_MESSAGE ? `${body.slice(0, MAX_MESSAGE - 1)}…` : body,
     priority: priorityFor(config.priority, run.severity, config.escalate),
+    markdown: config.markdown || undefined,
+    // Only warnings get a symbol before the title; a normal briefing stays plain.
+    tags: run.severity === 'alarm' ? ['rotating_light'] : run.severity === 'warn' ? ['warning'] : undefined,
     click: config.click?.trim() || undefined
   }
 }

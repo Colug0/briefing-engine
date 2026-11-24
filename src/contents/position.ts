@@ -11,6 +11,7 @@ function dm(value: number, pos: string, neg: string): string {
 
 export const positionContent: ContentType<Record<string, never>> = {
   id: 'position',
+  emoji: '📍',
   title: 'Position',
   description: "The vessel's position.",
   schema: Type.Object({}),
@@ -21,6 +22,7 @@ export const positionContent: ContentType<Record<string, never>> = {
     return {
       title: 'Position',
       text: `Position: ${text}.`,
+      summary: text,
       speech: `Position: ${Math.abs(p.latitude).toFixed(2)} degrees ${p.latitude >= 0 ? 'north' : 'south'}, ${Math.abs(p.longitude).toFixed(2)} degrees ${p.longitude >= 0 ? 'east' : 'west'}.`,
       data: { latitude: p.latitude, longitude: p.longitude, text }
     }
