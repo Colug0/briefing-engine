@@ -54,12 +54,41 @@ describe('ntfy delivery', () => {
     const ctx = fakeCtx({ [INTERNET_PATH]: 'offline' }, { http: ok })
     const cfg = config({ local: target('http://ntfy.local', false), internet: { ...target('https://ntfy.sh'), token: 'tk' } })
     expect(await ntfyDelivery.deliver(ctx, cfg, run())).toBe('internet server: waiting for a connection')
-    expect(await ntfyDelivery.deliver(ctx, cfg, run({ id: 'r2', at: '2026-11-23T20:00:00Z' }))).toContain('waiting')
+    expect(await ntfyDelivery.deliver(ctx, cfg, run({ id: 'r2', at: '2026-11-23T20:00:00Z', briefingName: 'Evening' }))).toContain('waiting')
     expect(ctx.requests).toHaveLength(0)
     ctx.values.set(INTERNET_PATH, 'metered')
     await flushPending(ctx)
     expect(ctx.requests).toHaveLength(1)
     expect((ctx.requests[0]!.init!.headers as Record<string, string>).Authorization).toBe('Bearer tk')
+    expect(JSON.parse(String(ctx.requests[0]!.init!.body)).title).toBe('Evening')
+    expect(ctx.stateData.get('ntfy/pending')).toEqual({})
+  })
+
+  it('sends a waiting message once when flushes overlap, and keeps one queued meanwhile', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    const ctx = fakeCtx({ [INTERNET_PATH]: 'offline' }, { http: async () => (await gate, new Response('{}')) })
+    const cfg = config({ local: target('', false), internet: target('https://ntfy.sh') })
+    await ntfyDelivery.deliver(ctx, cfg, run())
+    ctx.values.set(INTERNET_PATH, 'online')
+    const a = flushPending(ctx)
+    const b = flushPending(ctx)
+    // A newer run is queued while the older one is on its way.
+    ctx.values.set(INTERNET_PATH, 'offline')
+    await ntfyDelivery.deliver(ctx, cfg, run({ id: 'r2', at: '2026-11-23T21:00:00Z', briefingName: 'Evening' }))
+    release()
+    await Promise.all([a, b])
+    expect(ctx.requests).toHaveLength(1)
+    expect(Object.values(ctx.stateData.get('ntfy/pending') as Record<string, { msg: { title: string } }>).map((p) => p.msg.title)).toEqual(['Evening'])
+  })
+
+  it('drops an older waiting run once a newer one went through', async () => {
+    let fail = true
+    const ctx = fakeCtx({}, { http: async () => (fail ? new Response('busy', { status: 503 }) : new Response('{}')) })
+    const cfg = config({ local: target('', false), internet: target('https://ntfy.sh') })
+    expect(await ntfyDelivery.deliver(ctx, cfg, run())).toContain('waiting')
+    fail = false
+    await ntfyDelivery.deliver(ctx, cfg, run({ id: 'r2', at: '2026-11-23T21:00:00Z' }))
     expect(ctx.stateData.get('ntfy/pending')).toEqual({})
   })
 

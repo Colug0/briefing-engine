@@ -73,7 +73,9 @@ export default function (app: ServerAPI): Plugin {
         cacheMaxAgeMs: config.cacheMaxAgeHours * 3_600_000
       })
       const engine = new Engine(ctx, registry, store, { contentTimeoutMs: config.contentTimeoutSeconds * 1000 })
-      Promise.all([store.load(), cache.load()])
+      // Without its cache the plugin still works; it only cannot show internet data offline.
+      const cacheReady = cache.load().catch((error: unknown) => app.error(`Could not prepare the cache: ${String(error)}`))
+      Promise.all([store.load(), cacheReady])
         .then(() => {
           // A restart while loading leaves this start behind.
           if (mine !== generation) return

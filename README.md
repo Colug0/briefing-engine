@@ -62,7 +62,7 @@ and litres.
 | Timezone source | – | `$source` to prefer for the ship's timezone offset |
 | Content timeout | 20 s | a block that takes longer is reported as not available |
 | Briefings kept in the history | 100 | |
-| Offline data shown for | 24 h | without internet, blocks show their last internet data with its age until it is this old |
+| Offline data shown for | 24 h | without internet, blocks that fetch from the internet through the plugin's cache show their last data with the time it was fetched, until it is this old |
 
 Briefings, their history and the schedules' state are stored in the plugin's
 data directory (`plugin-config-data/briefing-engine/briefings/`). Remembered

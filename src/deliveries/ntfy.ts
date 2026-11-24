@@ -120,31 +120,46 @@ function pending(ctx: Ctx): Record<string, Pending> {
   return v && typeof v === 'object' ? { ...(v as Record<string, Pending>) } : {}
 }
 
-/** Send what waited for the internet; keep what may succeed later. */
-export async function flushPending(ctx: Ctx): Promise<void> {
-  if (!mayUseInternet(ctx.internet())) return
+/**
+ * Remove a waiting entry, but only if it is still the one we looked at: a
+ * newer briefing may have taken its place while a request was under way.
+ */
+function retire(ctx: Ctx, key: string, at: string, newerToo = false): void {
   const queue = pending(ctx)
-  let changed = false
-  for (const [key, p] of Object.entries(queue)) {
-    if (ctx.now().getTime() - Date.parse(p.at) > MAX_WAIT_MS) {
-      delete queue[key]
-      changed = true
-      ctx.log.debug(`ntfy: dropped "${p.msg.title}", it waited more than 24 h`)
-      continue
-    }
-    try {
-      await publish(ctx, p.msg)
-      delete queue[key]
-      changed = true
-    } catch (error) {
-      if (!(error instanceof NtfyError && error.retryable)) {
-        delete queue[key]
-        changed = true
-      }
-      ctx.log.error(`ntfy: ${error instanceof Error ? error.message : String(error)}`)
-    }
+  const current = queue[key]
+  if (!current) return
+  if (current.at === at || (newerToo && Date.parse(current.at) <= Date.parse(at))) {
+    delete queue[key]
+    ctx.state.set(PENDING_KEY, queue)
   }
-  if (changed) ctx.state.set(PENDING_KEY, queue)
+}
+
+/** One flush at a time per context, so a message is not sent twice. */
+const flushing = new WeakMap<Ctx, Promise<void>>()
+
+/** Send what waited for the internet; keep what may succeed later. */
+export function flushPending(ctx: Ctx): Promise<void> {
+  const running = flushing.get(ctx)
+  if (running) return running
+  const job = (async () => {
+    if (!mayUseInternet(ctx.internet())) return
+    for (const [key, p] of Object.entries(pending(ctx))) {
+      if (ctx.now().getTime() - Date.parse(p.at) > MAX_WAIT_MS) {
+        retire(ctx, key, p.at)
+        ctx.log.debug(`ntfy: dropped "${p.msg.title}", it waited more than 24 h`)
+        continue
+      }
+      try {
+        await publish(ctx, p.msg)
+        retire(ctx, key, p.at)
+      } catch (error) {
+        if (!(error instanceof NtfyError && error.retryable)) retire(ctx, key, p.at)
+        ctx.log.error(`ntfy: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
+  })().finally(() => flushing.delete(ctx))
+  flushing.set(ctx, job)
+  return job
 }
 
 export const ntfyDelivery: DeliveryType<Config> = {
@@ -164,10 +179,11 @@ export const ntfyDelivery: DeliveryType<Config> = {
     }
     if (usable(config.internet)) {
       const msg = messageFor(config.internet, config, run)
+      const key = `${run.briefingId}|${msg.server}|${msg.topic}`
       const wait = (): void => {
         const queue = pending(ctx)
         // Only the newest briefing of each kind is worth sending late.
-        queue[`${run.briefingId}|${msg.server}|${msg.topic}`] = { at: run.at, msg }
+        queue[key] = { at: run.at, msg }
         ctx.state.set(PENDING_KEY, queue)
         notes.push('internet server: waiting for a connection')
       }
@@ -175,6 +191,8 @@ export const ntfyDelivery: DeliveryType<Config> = {
       else {
         try {
           await publish(ctx, msg)
+          // An older run of this briefing that still waits is outdated now.
+          retire(ctx, key, run.at, true)
         } catch (error) {
           if (error instanceof NtfyError && error.retryable) wait()
           else errors.push(error instanceof Error ? error.message : String(error))

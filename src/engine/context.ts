@@ -100,7 +100,8 @@ export function createContext(app: ServerAPI, pluginId: string, state: StateStor
     internet: () => internetState(ctx.getSelf(INTERNET_PATH)),
     http(url, init = {}) {
       const { timeoutMs = 15_000, ...rest } = init
-      return fetch(url, { ...rest, signal: rest.signal ?? AbortSignal.timeout(timeoutMs) })
+      const timeout = AbortSignal.timeout(timeoutMs)
+      return fetch(url, { ...rest, signal: rest.signal ? AbortSignal.any([rest.signal, timeout]) : timeout })
     },
     async cached(key, load) {
       const maxAge = options.cacheMaxAgeMs ?? 24 * 3_600_000
