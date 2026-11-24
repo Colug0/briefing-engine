@@ -61,7 +61,8 @@ describe('sums from history', () => {
     // A clean steady fall keeps its first and last reading.
     expect(totalUse([0.15, 0.14, 0.13, 0.12, 0.11], 0.012)).toBeCloseTo(0.04)
     // A rise below the threshold after a fill has peaked is wobble, not more fill.
-    expect(totalUse([0.1, 0.1, 0.1, 0.12, 0.12, 0.12, 0.12, 0.128, 0.128, 0.128], 0.012)).toBeCloseTo(0)
+    // Used back down to 0.1 afterwards: 0.02 of use, which counting the wobble as fill would make 0.028.
+    expect(totalUse([0.1, 0.1, 0.1, 0.12, 0.12, 0.12, 0.12, 0.128, 0.128, 0.128, 0.1, 0.1, 0.1], 0.012)).toBeCloseTo(0.02)
     // A fill is followed to its peak: used 0.02, filled 0.06.
     expect(totalUse([0.1, 0.1, 0.1, 0.08, 0.08, 0.08, 0.12, 0.14, 0.14, 0.14, 0.14], 0.03)).toBeCloseTo(0.02)
   })
