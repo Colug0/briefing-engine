@@ -26,27 +26,30 @@ interface Feature {
     eventname?: string
     alertlevel?: string
     todate?: string
+    datemodified?: string
     severitydata?: { severitytext?: string }
     url?: { report?: string }
   }
 }
 
-export function stormSeverity(s: Pick<StormItem, 'alertLevel' | 'distanceNm'>): Severity | undefined {
-  if (s.alertLevel === 'red' || s.distanceNm < ALARM_NM) return 'alarm'
+export function stormSeverity(s: Pick<StormItem, 'alertLevel' | 'distanceNm'> & { exactNm?: number }): Severity | undefined {
+  // The unrounded distance decides: 299.6 nm is inside 300.
+  if (s.alertLevel === 'red' || (s.exactNm ?? s.distanceNm) < ALARM_NM) return 'alarm'
   if (s.alertLevel === 'orange') return 'warn'
   return undefined
 }
 
 /** Storms from a GDACS answer that are recent and within reach of the vessel, nearest first. */
-export function stormsNear(json: unknown, vessel: Position, radiusNm: number, now: Date, hours: number): StormItem[] {
+export function stormsNear(json: unknown, vessel: Position, radiusNm: number, now: Date, hours: number): Array<StormItem & { exactNm: number }> {
   const features = (json as { features?: Feature[] } | undefined)?.features ?? []
-  const out: StormItem[] = []
+  const out: Array<StormItem & { exactNm: number }> = []
   for (const f of features) {
     const c = f.geometry?.type === 'Point' ? (f.geometry.coordinates as unknown[]) : undefined
-    if (!c || !isNum(c[0]) || !isNum(c[1])) continue
+    if (!c || !isNum(c[0]) || !isNum(c[1]) || Math.abs(c[0]) > 180 || Math.abs(c[1]) > 90) continue
     const p = f.properties ?? {}
-    // GDACS times are UTC without a zone.
-    const updated = p.todate ? Date.parse(/[zZ+]/.test(p.todate.slice(10)) ? p.todate : `${p.todate}Z`) : Number.NaN
+    // When GDACS last changed the event; `todate` is the end of the event window. Times are UTC without a zone.
+    const stamp = p.datemodified ?? p.todate
+    const updated = stamp ? Date.parse(/[zZ+]/.test(stamp.slice(10)) ? stamp : `${stamp}Z`) : Number.NaN
     if (Number.isNaN(updated) || now.getTime() - updated > hours * 3_600_000) continue
     const at = { latitude: c[1], longitude: c[0] }
     const d = distanceNm(vessel, at)
@@ -54,6 +57,7 @@ export function stormsNear(json: unknown, vessel: Position, radiusNm: number, no
     const level = (p.alertlevel ?? '').toLowerCase()
     const b = bearing(vessel, at)
     out.push({
+      exactNm: d,
       name: p.eventname || p.name || 'Tropical cyclone',
       alertLevel: level === 'green' || level === 'orange' || level === 'red' ? level : 'unknown',
       description: p.severitydata?.severitytext,
@@ -82,7 +86,9 @@ export const stormContent: ContentType<Config> = {
       if (!res.ok) throw new Error(`GDACS: HTTP ${res.status}`)
       return (await res.json()) as unknown
     })
-    const storms = stormsNear(got.value, vessel, config.radiusNm, ctx.now(), config.hours).map((s) => ({
+    const found = stormsNear(got.value, vessel, config.radiusNm, ctx.now(), config.hours)
+    const severity = maxSeverity(found.map(stormSeverity))
+    const storms: StormItem[] = found.map(({ exactNm: _exact, ...s }) => ({
       ...s,
       updatedText: s.updatedText ? `${ctx.date(s.updatedText)} ${ctx.time(s.updatedText)}` : undefined
     }))
@@ -99,7 +105,7 @@ export const stormContent: ContentType<Config> = {
       title: 'Tropical cyclones',
       text: `Tropical cyclones. ${text}`,
       data,
-      severity: maxSeverity(storms.map(stormSeverity)),
+      severity,
       asOf: got.fromCache ? got.at.toISOString() : undefined
     }
   }

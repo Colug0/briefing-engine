@@ -45,6 +45,14 @@ describe('marine bulletin', () => {
     expect(au.warnings).toEqual([])
     expect(au.severity).toBeUndefined()
     expect(parseBulletin('PART 1 : STORM WARNING 042 ISSUED BY FIJI', boat, 600).severity).toBe('alarm')
+    // Storm force near the boat is an alarm without the word warning; far away it is not.
+    expect(parseBulletin('TROPICAL CYCLONE TEST NEAR 10S 179E. HURRICANE FORCE WINDS.', boat, 600).severity).toBe('alarm')
+    expect(parseBulletin('TROPICAL CYCLONE TEST NEAR 30S 150W. HURRICANE FORCE WINDS.', boat, 600).severity).toBeUndefined()
+    // A long warning is kept whole, and force words at its end still count.
+    const long = `GALE WARNING 12. ${'SOUTHEAST WINDS 35 KNOTS. '.repeat(20)}STORM FORCE WINDS EXPECTED LATER.`
+    const parsed = parseBulletin(long, boat, 600)
+    expect(parsed.warnings[0]).toBe(long)
+    expect(parsed.severity).toBe('alarm')
   })
 
   it('splits paragraphs on blank lines and indented lines', () => {
@@ -94,6 +102,16 @@ describe('storms', () => {
     expect(stormSeverity({ alertLevel: 'orange', distanceNm: 800 })).toBe('warn')
     expect(stormSeverity({ alertLevel: 'green', distanceNm: 250 })).toBe('alarm')
     expect(stormSeverity({ alertLevel: 'green', distanceNm: 700 })).toBeUndefined()
+    expect(stormSeverity({ alertLevel: 'green', distanceNm: 300, exactNm: 299.6 })).toBe('alarm')
+    expect(stormSeverity({ alertLevel: 'green', distanceNm: 300, exactNm: 300 })).toBeUndefined()
+    // Out-of-range coordinates are dropped, and the last change counts, not the end of the event window.
+    const odd = {
+      features: [
+        { geometry: { type: 'Point', coordinates: [0, 360] }, properties: { eventname: 'BAD', alertlevel: 'Red', todate: '2026-11-23T00:00:00' } },
+        { geometry: { type: 'Point', coordinates: [-168.8, -11.8] }, properties: { eventname: 'OLDWINDOW', alertlevel: 'Green', todate: '2026-11-19T00:00:00', datemodified: '2026-11-23T10:00:00' } }
+      ]
+    }
+    expect(stormsNear(odd, boat, 5000, new Date('2026-11-23T20:00:00Z'), 48).map((s) => s.name)).toEqual(['OLDWINDOW'])
   })
 
   it('writes the storm with distance and direction from the boat', async () => {

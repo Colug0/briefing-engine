@@ -53,6 +53,7 @@ const NO_WARNING = /\b(warning|warnings)\s*:?\s*nil\b|\bno (gale |storm )?warnin
 const TROPICAL = /^(severe )?(tropical (cyclone|depression|storm|low|disturbance)|hurricane|typhoon|TC\b|TD\d)/i
 const WARNING = /\bwarning\b|\bavis de\b/i
 const SEVERE = /hurricane|typhoon|storm force|storm warning|violent storm|tempête|ouragan/i
+/** Tropical cyclone names such as XAVIER do not make a paragraph severe; force words do. */
 
 /** Paragraphs of a bulletin: blank lines or a line starting with a space start a new one. */
 export function paragraphs(text: string): string[] {
@@ -86,20 +87,24 @@ export function parseBulletin(text: string, vessel: Position | undefined, radius
   const issued = issuedLine?.match(/(?:issued|émis)[^.]*?(\d{1,2}\s*\w{3}[^.]*?UTC|\w{3}\s*\d{6}\s*UTC|\d{4}\s*UTC[^.]*)/i)?.[1]
   const warnings: string[] = []
   const systems: BulletinSystem[] = []
+  let severeNearby = false
   for (const p of paras) {
     if (/^(part|parts)\s*\d/i.test(p) && NO_WARNING.test(p)) continue
     const tropical = TROPICAL.test(p)
     const pos = vessel ? nearestPosition(p, vessel) : findPositions(p)[0]
     if (WARNING.test(p) && !NO_WARNING.test(p) && !/^(part|parts)\s*\d+\s*(and\s*\d+)?\s*:\s*(synopsis|forecast)/i.test(p)) {
-      warnings.push(clip(p))
+      // Warnings stay whole: what matters may come at the end.
+      warnings.push(p)
       continue
     }
     if (!pos && !tropical) continue
     const near = vessel && pos ? distanceNm(vessel, pos) <= radiusNm : !vessel
     if (!near && !tropical) continue
+    if (near && SEVERE.test(p)) severeNearby = true
     systems.push({ text: clip(p), distanceText: vessel && pos ? rangeText(vessel, pos) : undefined, tropical })
   }
-  const severity: Severity | undefined = warnings.some((w) => SEVERE.test(w)) ? 'alarm' : warnings.length ? 'warn' : undefined
+  const severity: Severity | undefined =
+    severeNearby || warnings.some((w) => SEVERE.test(w)) ? 'alarm' : warnings.length ? 'warn' : undefined
   return { issued, warnings, systems, severity }
 }
 
