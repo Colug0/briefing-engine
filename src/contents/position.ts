@@ -22,7 +22,7 @@ export const positionContent: ContentType<Record<string, never>> = {
       title: 'Position',
       text: `Position: ${text}.`,
       speech: `Position: ${Math.abs(p.latitude).toFixed(2)} degrees ${p.latitude >= 0 ? 'north' : 'south'}, ${Math.abs(p.longitude).toFixed(2)} degrees ${p.longitude >= 0 ? 'east' : 'west'}.`,
-      data: p
+      data: { latitude: p.latitude, longitude: p.longitude, text }
     }
   }
 }

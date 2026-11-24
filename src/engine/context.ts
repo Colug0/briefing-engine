@@ -17,6 +17,7 @@ interface NewerServer {
   convertToDisplayUnits?: (path: string, value: number) => { value: number; symbol: string; displayFormat?: string } | undefined
   weatherApi?: WeatherApiLike
   getHistoryApi?: () => Promise<HistoryApiLike>
+  resourcesApi?: { listResources(type: string, params: Record<string, unknown>): Promise<Record<string, unknown>> }
 }
 
 export interface ContextOptions {
@@ -79,6 +80,14 @@ export function createContext(app: ServerAPI, pluginId: string, state: StateStor
       if (typeof newer.getHistoryApi !== 'function') return undefined
       try {
         return await newer.getHistoryApi()
+      } catch {
+        return undefined
+      }
+    },
+    async listResources(type, params = {}) {
+      if (typeof newer.resourcesApi?.listResources !== 'function') return undefined
+      try {
+        return await newer.resourcesApi.listResources(type, params)
       } catch {
         return undefined
       }

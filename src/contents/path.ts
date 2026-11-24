@@ -20,6 +20,6 @@ export const pathContent: ContentType<Static<typeof PathSchema>> = {
     else if (value === undefined || value === null) text = 'no data'
     else if (typeof value === 'object') text = JSON.stringify(value)
     else text = String(value)
-    return { title, text: `${title}: ${text}.`, data: { path: config.path, value } }
+    return { title, text: `${title}: ${text}.`, data: { path: config.path, label: title, value, text } }
   }
 }

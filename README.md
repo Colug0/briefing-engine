@@ -12,7 +12,10 @@ runs, **what** it says and **where** it goes.
   "Briefing … ready".
 
 Briefings are created, cloned, enabled and disabled in the webapp
-(**Webapps → Briefing Engine**).
+(**Webapps → Briefing Engine**). There each briefing shows with small
+graphics: battery and tank gauges (fuel, water and waste in their own
+colours), the sun's arc, the moon's phase as seen from your hemisphere, a
+tide curve for the day and a weather symbol with wind arrow per day.
 
 Example:
 
@@ -31,8 +34,8 @@ Weather. Today: 23.9 to 28.8 °C, wind 15.0 kn from SE, gusts 21.0 kn, rain 2 mm
 |---|---|
 | [@meri-imperiumi/signalk-internet](https://www.npmjs.com/package/@meri-imperiumi/signalk-internet) | `network.internet.state` for schedules that wait for a connection |
 | [signalk-derived-data](https://www.npmjs.com/package/signalk-derived-data) | sun and moon (`environment.sunlight.*`, `environment.moon.*`) |
-| [signalk-tides](https://www.npmjs.com/package/signalk-tides) | tides (`environment.tide.*`) |
-| a weather provider plugin | the weather forecast, through the Signal K weather API |
+| [signalk-tides](https://www.npmjs.com/package/signalk-tides) | tides (`environment.tide.*`, and its `tides` resource for the tide curve) |
+| a weather provider plugin, e.g. [@signalk/open-meteo-provider](https://www.npmjs.com/package/@signalk/open-meteo-provider) | the weather forecast, through the Signal K weather API; the default provider answers. Open-Meteo's weather texts give each day its symbol |
 
 Without one of them, the matching block says it is not available and the rest
 of the briefing still runs.
@@ -78,6 +81,10 @@ export const myContent: ContentType<{ path: string }> = {
   }
 }
 ```
+
+A content type can also return `data`; when the webapp has a view for the
+type (`web/src/blocks`), it draws that instead of the text. The data shapes
+are in `src/contents/data.ts`.
 
 `ctx` gives access to Signal K values, display units, ship time, the weather
 and history APIs and persistent state. A content block that throws is shown as

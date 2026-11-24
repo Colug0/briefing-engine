@@ -1,4 +1,5 @@
 import type { Run } from './api'
+import { Blocks } from './blocks'
 
 const when = (iso: string): string =>
   new Date(iso).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -13,11 +14,7 @@ export function RunCard({ run, large = false }: { run: Run; large?: boolean }) {
           {when(run.at)} · {run.reason}
         </span>
       </header>
-      {run.blocks.map((b, i) => (
-        <p key={i} className={b.error ? 'block unavailable' : 'block'}>
-          {b.text}
-        </p>
-      ))}
+      <Blocks blocks={run.blocks} />
       {failed.length > 0 && (
         <p className="warn">
           Not delivered: {failed.map((d) => `${d.type} (${d.error ?? 'failed'})`).join(', ')}
