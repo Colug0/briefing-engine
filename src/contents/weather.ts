@@ -194,18 +194,27 @@ export const weatherContent: ContentType<Config> = {
     const position = { latitude: p.latitude, longitude: p.longitude }
     const offset = ctx.utcOffsetMinutes()
     const now = ctx.now()
-    const pointsRequest = api.getForecasts(position, 'point', { maxCount: (config.days + 1) * 24 }).catch(() => [] as WeatherData[])
-    let timer: NodeJS.Timeout | undefined
-    const pointsOrNothing = Promise.race([
-      pointsRequest,
-      new Promise<WeatherData[]>((resolve) => {
-        timer = setTimeout(() => resolve([]), POINTS_WAIT_MS)
-      })
-    ])
-    const daily = await api.getForecasts(position, 'daily', { maxCount: config.days + 1 }).catch(() => [] as WeatherData[])
-    // Without a daily forecast the points are all there is, so then wait for them in full.
-    const points = await (daily?.length ? pointsOrNothing : pointsRequest).finally(() => clearTimeout(timer))
-    const summaries = summarize(daily ?? [], points ?? [], offset, config.days, now)
+    // Hourly points only add waves: once a usable daily forecast is there,
+    // wait for points that are still pending only a little longer.
+    let settled: WeatherData[] | undefined
+    const pointsRequest = api
+      .getForecasts(position, 'point', { maxCount: (config.days + 1) * 24 })
+      .catch(() => [] as WeatherData[])
+      .then((p) => (settled = p ?? []))
+    const daily = (await api.getForecasts(position, 'daily', { maxCount: config.days + 1 }).catch(() => [] as WeatherData[])) ?? []
+    let points: WeatherData[]
+    if (settled) points = settled
+    else if (!summarize(daily, [], offset, config.days, now).length) points = await pointsRequest
+    else {
+      let timer: NodeJS.Timeout | undefined
+      points = await Promise.race([
+        pointsRequest,
+        new Promise<WeatherData[]>((resolve) => {
+          timer = setTimeout(() => resolve([]), POINTS_WAIT_MS)
+        })
+      ]).finally(() => clearTimeout(timer))
+    }
+    const summaries = summarize(daily, points, offset, config.days, now)
     if (!summaries.length) throw new Error('the provider returned no forecast')
     const today = localParts(now, offset).isoDate
     const days = summaries.map((d) => toDay(ctx, d, dayName(d.date, today, ctx), config.waves, config.description))

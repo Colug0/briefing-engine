@@ -315,6 +315,25 @@ describe('weather', () => {
     }
   })
 
+  it('waits for hourly points in full when the daily forecast has nothing for today', async () => {
+    vi.useFakeTimers()
+    try {
+      const getForecasts = vi.fn((_p: unknown, type: string) =>
+        type === 'daily'
+          ? Promise.resolve([{ date: '2026-11-22T00:00:00.000Z', type: 'daily', description: 'Clear sky' }])
+          : new Promise<WeatherData[]>((resolve) =>
+              setTimeout(() => resolve([{ date: '2026-11-23T22:00:00.000Z', type: 'point', outside: { temperature: 300 } }]), 8_000)
+            )
+      )
+      const ctx = fakeCtx({ 'navigation.position': { latitude: -8.6, longitude: 179.1 } }, { now: '2026-11-23T20:00:00Z', weather: { getForecasts } })
+      const pending = weatherContent.fetch(ctx, { days: 1, waves: true, warnings: false, description: false })
+      await vi.advanceTimersByTimeAsync(8_000)
+      expect((await pending).text).toBe('Weather. Today: 26.9 °C.')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('keeps a daily entry on its own date west of Greenwich', () => {
     // The provider may leave out `type`; which list an entry came in decides.
     expect(summarize([{ date: '2026-11-24T00:00:00.000Z' }], [], -600, 1, new Date('2026-11-24T18:00:00Z')).map((d) => d.date)).toEqual(['2026-11-24'])
