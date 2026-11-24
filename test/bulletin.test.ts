@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { bulletinContent, paragraphs, parseBulletin } from '../src/contents/bulletin.js'
+import { bulletinContent, paragraphs, parseBulletin, shortSystem, systemLine } from '../src/contents/bulletin.js'
 import { stormContent, stormSeverity, stormsNear } from '../src/contents/storms.js'
 import { findPositions, latLonText, rangeText } from '../src/engine/geo.js'
 import { INTERNET_PATH } from '../src/engine/internet.js'
@@ -176,5 +176,29 @@ describe('storms', () => {
     expect(block.severity).toBeUndefined()
     const none = await stormContent.fetch(ctx, { radiusNm: 300, hours: 48 })
     expect(none.text).toBe('Tropical cyclones. No tropical cyclones within 300 nm.')
+  })
+})
+
+describe('weather systems in push messages', () => {
+  it('keeps the first sentence in sentence case', () => {
+    expect(
+      shortSystem(
+        'TROPICAL DISTURBANCE TD02F [FORMER TROPICAL CYCLONE XAVIER] CENTRE 1005HPA WAS ANALYSED NEAR 11.5 SOUTH 171.5 WEST AT 241800 UTC. POSITION POOR. TD02F SLOW MOVING.'
+      )
+    ).toBe('Tropical disturbance TD02F (former tropical cyclone Xavier) centre 1005 hPa was analysed near 11.5 south 171.5 west at 241800 UTC.')
+  })
+
+  it('does not take bulletin words for storm names', () => {
+    expect(shortSystem('STORM WARNING 042 FOR AREA A.')).toBe('Storm warning 042 for area a.')
+  })
+
+  it('gives the distance of the sentence it shows', () => {
+    const line = systemLine('LOW 1000HPA NEAR 10S 170E. HIGH 1024HPA NEAR 20S 170E.', { latitude: -20, longitude: 170 })
+    expect(line).toMatch(/· High 1024 hPa near 20S 170E\.$/)
+    expect(line.startsWith(rangeText({ latitude: -20, longitude: 170 }, { latitude: -20, longitude: 170 }))).toBe(true)
+  })
+
+  it('leaves text in normal case alone', () => {
+    expect(shortSystem('Low 1004 hPa near 12S 175W, moving east. Expected to deepen.')).toBe('Low 1004 hPa near 12S 175W, moving east.')
   })
 })

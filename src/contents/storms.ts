@@ -108,7 +108,8 @@ export const stormContent: ContentType<Config> = {
       summary: storms.length ? 'Tropical cyclones' : `No tropical cyclones within ${config.radiusNm} nm`,
       items: storms.map(
         (s) =>
-          `${s.name} · ${s.distanceNm} nm ${s.compass} · ${s.alertLevel} alert${s.description ? ` · ${s.description}` : ''}${s.updatedText ? ` · updated ${s.updatedText}` : ''}`
+          // GDACS's description gives the storm's highest wind over its whole life, which reads as now.
+          `${s.name} · ${s.distanceNm} nm ${s.compass} · ${s.alertLevel} alert${s.updatedText ? ` · updated ${s.updatedText}` : ''}`
       ),
       data,
       severity,
