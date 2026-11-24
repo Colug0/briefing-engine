@@ -151,7 +151,7 @@ describe('contents', () => {
     expect(await text(batteryContent.fetch(ctx, { batteries: [], lowPercent: 30, highPercent: 70 }))).toBe(
       'Batteries. House: 87%, 12.9 V, -4.2 A, 31.5 h left. Starter: 12.7 V.'
     )
-    expect(await text(tankContent.fetch(ctx, { tanks: [] }))).toBe('Tanks. Fresh water: 75% (150 L). Diesel: 50%.')
+    expect(await text(tankContent.fetch(ctx, { tanks: [], yesterday: false }))).toBe('Tanks. Fresh water: 75% (150 L). Diesel: 50%.')
     expect(await text(sunContent.fetch(ctx, { twilight: true }))).toBe('Sunrise 05:33, sunset 18:05 (dawn 05:10, dusk 18:28).')
     expect(await text(moonContent.fetch(ctx, {}))).toBe('Moon: waxing gibbous, 91% lit, rises 15:38, sets 02:56.')
     expect(await text(tideContent.fetch(ctx, {}))).toBe(
@@ -190,7 +190,7 @@ describe('contents', () => {
     const ctx = fakeCtx({ ...tree, 'environment.tide.heightNow': 1.4 }, { now: '2026-11-23T00:00:00Z', resources: { tides } })
     const block = await tideContent.fetch(ctx, {})
     expect(block.data).toMatchObject({ nowLevel: 1.4, points: [{ timeText: '16:25' }, { timeText: '22:52' }, { timeText: '05:00' }] })
-    const tanks = await tankContent.fetch(ctx, { tanks: ['tanks.fuel.main', ' freshWater.0 '] })
+    const tanks = await tankContent.fetch(ctx, { tanks: ['tanks.fuel.main', ' freshWater.0 '], yesterday: false })
     expect(tanks.text).toBe('Tanks. Diesel: 50%. Fresh water: 75% (150 L).')
     const batteries = await batteryContent.fetch(ctx, { batteries: ['electrical.batteries.house'], lowPercent: 30, highPercent: 70 })
     expect(batteries.text).toContain('House: 87%')
@@ -225,7 +225,7 @@ describe('contents', () => {
       low: 0.25,
       high: 0.8
     })
-    expect((await tankContent.fetch(ctx, { tanks: [] })).data).toMatchObject({
+    expect((await tankContent.fetch(ctx, { tanks: [], yesterday: false })).data).toMatchObject({
       items: [
         { id: 'freshWater.0', kind: 'water', level: 0.75 },
         { id: 'fuel.main', name: 'Diesel', kind: 'fuel', level: 0.5 }

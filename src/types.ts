@@ -6,6 +6,7 @@
 import { batteryContent } from './contents/battery.js'
 import { bulletinContent } from './contents/bulletin.js'
 import { moonContent } from './contents/moon.js'
+import { overnightContent } from './contents/overnight.js'
 import { pathContent } from './contents/path.js'
 import { positionContent } from './contents/position.js'
 import { stormContent } from './contents/storms.js'
@@ -23,7 +24,7 @@ import { scheduleTrigger } from './triggers/schedule.js'
 export function createRegistry(): Registry {
   return new Registry({
     triggers: [scheduleTrigger, pathTrigger],
-    contents: [positionContent, batteryContent, tankContent, sunContent, moonContent, tideContent, weatherContent, bulletinContent, stormContent, pathContent],
+    contents: [positionContent, batteryContent, overnightContent, tankContent, sunContent, moonContent, tideContent, weatherContent, bulletinContent, stormContent, pathContent],
     deliveries: [webappDelivery, notificationDelivery, ntfyDelivery]
   })
 }

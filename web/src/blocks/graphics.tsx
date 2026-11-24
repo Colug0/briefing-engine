@@ -85,3 +85,25 @@ export function SunArc({ sunrise, sunset, now }: { sunrise?: string; sunset?: st
     </svg>
   )
 }
+
+/** A small curve of a ratio (0–1) over time; gaps where the value is unknown. */
+export function Sparkline({ values }: { values: Array<number | null> }) {
+  const W = 120
+  const H = 34
+  const n = values.length
+  if (n < 2) return null
+  let d = ''
+  values.forEach((v, i) => {
+    if (v === null) return
+    const x = (i / (n - 1)) * (W - 4) + 2
+    const y = H - 3 - Math.min(Math.max(v, 0), 1) * (H - 6)
+    const prev = values[i - 1]
+    d += `${i === 0 || prev === null || prev === undefined ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)} `
+  })
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" className="gauge">
+      <line x1="2" y1={H - 3} x2={W - 2} y2={H - 3} stroke="var(--line)" />
+      <path d={d} fill="none" stroke="var(--good)" strokeWidth="2" />
+    </svg>
+  )
+}
