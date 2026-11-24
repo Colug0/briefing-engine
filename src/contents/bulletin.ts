@@ -52,7 +52,7 @@ const NO_WARNING = /\b(warning|warnings)\s*:?\s*nil\b|\bno (gale |storm )?warnin
 /** A paragraph about a tropical system itself, not one that only mentions it. */
 const TROPICAL = /^(severe )?(tropical (cyclone|depression|storm|low|disturbance)|hurricane|typhoon|TC\b|TD\d)/i
 const WARNING = /\bwarning\b|\bavis de\b/i
-const SEVERE = /hurricane|typhoon|storm force|storm warning|violent storm|tempête|ouragan/i
+const SEVERE = /hurricane|typhoon|storm[\s-]+force|storm warning|violent storm|tempête|ouragan/i
 /** Tropical cyclone names such as XAVIER do not make a paragraph severe; force words do. */
 
 /** Paragraphs of a bulletin: blank lines or a line starting with a space start a new one. */
@@ -100,7 +100,8 @@ export function parseBulletin(text: string, vessel: Position | undefined, radius
     if (!pos && !tropical) continue
     const near = vessel && pos ? distanceNm(vessel, pos) <= radiusNm : !vessel
     if (!near && !tropical) continue
-    if (near && SEVERE.test(p)) severeNearby = true
+    // Only a measured distance makes a system near enough to alarm.
+    if (vessel && pos && near && SEVERE.test(p)) severeNearby = true
     systems.push({ text: clip(p), distanceText: vessel && pos ? rangeText(vessel, pos) : undefined, tropical })
   }
   const severity: Severity | undefined =

@@ -48,6 +48,9 @@ describe('marine bulletin', () => {
     // Storm force near the boat is an alarm without the word warning; far away it is not.
     expect(parseBulletin('TROPICAL CYCLONE TEST NEAR 10S 179E. HURRICANE FORCE WINDS.', boat, 600).severity).toBe('alarm')
     expect(parseBulletin('TROPICAL CYCLONE TEST NEAR 30S 150W. HURRICANE FORCE WINDS.', boat, 600).severity).toBeUndefined()
+    expect(parseBulletin('TROPICAL CYCLONE TEST NEAR 10S 179E. STORM-FORCE WINDS.', boat, 600).severity).toBe('alarm')
+    // Without the boat's position nothing is known to be near.
+    expect(parseBulletin('TROPICAL CYCLONE TEST. HURRICANE FORCE WINDS.', undefined, 600).severity).toBeUndefined()
     // A long warning is kept whole, and force words at its end still count.
     const long = `GALE WARNING 12. ${'SOUTHEAST WINDS 35 KNOTS. '.repeat(20)}STORM FORCE WINDS EXPECTED LATER.`
     const parsed = parseBulletin(long, boat, 600)
