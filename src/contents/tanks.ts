@@ -25,8 +25,9 @@ export const tankContent: ContentType<Static<typeof TankSchema>> = {
   description: 'Level and volume of your tanks.',
   schema: TankSchema,
   async fetch(ctx, config) {
+    // Accept ids written with their full path too (tanks.fuel.main).
     const ids = config.tanks.length
-      ? config.tanks
+      ? config.tanks.map((id) => id.trim().replace(/^(vessels\.self\.)?tanks\./, ''))
       : ctx.childKeys('tanks').flatMap((type) => ctx.childKeys(`tanks.${type}`).map((id) => `${type}.${id}`))
     const items: TankItem[] = ids.map((id) => {
       const t = `tanks.${id}`

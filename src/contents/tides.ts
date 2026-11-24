@@ -12,13 +12,16 @@ interface Extreme {
   high: boolean
 }
 
-/** Extremes from the `tides` resource signalk-tides serves (7 days ahead), or none. */
+/**
+ * Extremes from the `tides` resource signalk-tides serves (7 days ahead), or
+ * none. In the server the times are Date objects; only REST makes them strings.
+ */
 export function resourceExtremes(resource: unknown): Extreme[] {
   const list = (resource as { extremes?: unknown } | undefined)?.extremes
   if (!Array.isArray(list)) return []
   return list.flatMap((e: unknown) => {
     const x = e as { time?: unknown; level?: unknown; high?: unknown }
-    const at = typeof x.time === 'string' ? Date.parse(x.time) : Number.NaN
+    const at = x.time instanceof Date ? x.time.getTime() : typeof x.time === 'string' ? Date.parse(x.time) : Number.NaN
     return Number.isNaN(at) || !isNum(x.level) ? [] : [{ at, level: x.level, high: x.high === true }]
   })
 }
@@ -67,8 +70,10 @@ export const tideContent: ContentType<Record<string, never>> = {
       const kind = p.high ? 'high' : 'low'
       return `${i === 0 ? kind.charAt(0).toUpperCase() + kind.slice(1) : kind} water ${p.timeText} (${p.levelText})`
     })
+    const nowLevel = ctx.getSelf(`${TIDE}.heightNow`)
     const data: TideData = {
       now: new Date(now).toISOString(),
+      nowLevel: isNum(nowLevel) ? nowLevel : undefined,
       station: typeof station === 'string' ? station : undefined,
       state: typeof state === 'string' ? state : undefined,
       nowText,

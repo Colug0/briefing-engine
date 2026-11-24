@@ -185,6 +185,17 @@ describe('contents', () => {
     )
   })
 
+  it('reads tide extremes the server hands over as Date objects, and ids with their path', async () => {
+    const tides = { extremes: [{ time: new Date('2026-11-23T04:25:59Z'), level: 2.18, high: true }, { time: new Date('2026-11-23T10:52:58Z'), level: 0.19, high: false }, { time: new Date('2026-11-23T17:00:00Z'), level: 2.1, high: true }] }
+    const ctx = fakeCtx({ ...tree, 'environment.tide.heightNow': 1.4 }, { now: '2026-11-23T00:00:00Z', resources: { tides } })
+    const block = await tideContent.fetch(ctx, {})
+    expect(block.data).toMatchObject({ nowLevel: 1.4, points: [{ timeText: '16:25' }, { timeText: '22:52' }, { timeText: '05:00' }] })
+    const tanks = await tankContent.fetch(ctx, { tanks: ['tanks.fuel.main', ' freshWater.0 '] })
+    expect(tanks.text).toBe('Tanks. Diesel: 50%. Fresh water: 75% (150 L).')
+    const batteries = await batteryContent.fetch(ctx, { batteries: ['electrical.batteries.house'], lowPercent: 30, highPercent: 70 })
+    expect(batteries.text).toContain('House: 87%')
+  })
+
   it('draws the tide day from the tides resource', async () => {
     const tides = {
       extremes: [
