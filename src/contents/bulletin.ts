@@ -131,7 +131,10 @@ const PART_ONE = /^parts?\s*1\b\s*[-:.]?\s*/i
 const isWarningsPart = (p: string) => PART_ONE.test(p) && /warning/i.test(p.split('.')[0] ?? '')
 const BOILERPLATE = /^refer to (the )?latest warnings?\b/i
 /** Words that only refer to a warning, as in "gales as in warning 337" or "outside of warning area". */
-const MENTION = /\b(as in|outside( of)?|inside( of)?|refer to|see)\b[^.;,]*?\bwarnings?\b[^.;,]*/gi
+const MENTION = /\b(as in|outside( of)?|inside( of)?|refer to|see)\b[^.;,]*?\bwarnings?\b[^.;,]*(?:(?:,|\band\b)\s*(?:warnings?\s*)?\d+[^.;,]*)*/gi
+
+/** The text with references to other warnings and "no warning" notices taken out, to judge how severe it is. */
+const ownWords = (p: string) => p.replace(MENTION, '').replace(new RegExp(NO_WARNING.source, 'gi'), '')
 
 /**
  * Warnings, kept whole. Services that number their parts list warnings in
@@ -170,19 +173,19 @@ export function parseBulletin(text: string, vessel: Position | undefined, radius
   const systems: BulletinSystem[] = []
   let severeNearby = false
   for (const [i, p] of paras.entries()) {
-    // A paragraph saying there is no warning is no weather system either.
-    if (section.has(i) || warnings.includes(p) || NO_WARNING.test(p)) continue
     const tropical = TROPICAL.test(p)
+    // A notice that there is no warning is no weather system, unless it describes one.
+    if (section.has(i) || warnings.includes(p) || (NO_WARNING.test(p) && !tropical)) continue
     const pos = vessel ? nearestPosition(p, vessel) : findPositions(p)[0]
     if (!pos && !tropical) continue
     const near = vessel && pos ? distanceNm(vessel, pos) <= radiusNm : !vessel
     if (!near && !tropical) continue
     // Only a measured distance makes a system near enough to alarm.
-    if (vessel && pos && near && SEVERE.test(p)) severeNearby = true
+    if (vessel && pos && near && SEVERE.test(ownWords(p))) severeNearby = true
     systems.push({ text: clip(p), distanceText: vessel && pos ? rangeText(vessel, pos) : undefined, tropical })
   }
   const severity: Severity | undefined =
-    severeNearby || warnings.some((w) => SEVERE.test(w)) ? 'alarm' : warnings.length ? 'warn' : undefined
+    severeNearby || warnings.some((w) => SEVERE.test(ownWords(w))) ? 'alarm' : warnings.length ? 'warn' : undefined
   return { issued, warnings, systems, severity }
 }
 

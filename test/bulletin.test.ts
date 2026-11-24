@@ -98,6 +98,14 @@ describe('marine bulletin', () => {
     expect(ref.warnings).toHaveLength(1)
     expect(parseBulletin('NO STORM WARNING FOR AREA NEAR 10S 179E.', boat, 600)).toMatchObject({ warnings: [], systems: [] })
     expect(parseBulletin('NO STORM WARNING FOR AREA NEAR 10S 179E.', boat, 600).severity).toBeUndefined()
+    // A reference to a storm warning elsewhere does not make this warning an alarm.
+    expect(parseBulletin('A STRONG WIND WARNING REMAINS IN FORCE FOR FIJI; SEE STORM WARNING 12 FOR ANOTHER AREA.', boat, 600).severity).toBe('warn')
+    // A list of referenced warnings is still only a reference.
+    expect(parseBulletin('Southerly 20kt, gales as in warning 12, warning 13 and warning 14.', boat, 600).warnings).toEqual([])
+    // A nearby tropical system stays, even when it says no warning is in force.
+    const tc = parseBulletin('TROPICAL CYCLONE TEST NEAR 10S 179E. NO GALE WARNING CURRENTLY IN FORCE. STORM FORCE WINDS EXPECTED.', boat, 600)
+    expect(tc.systems).toHaveLength(1)
+    expect(tc.severity).toBe('alarm')
   })
 
   it('splits paragraphs on blank lines and indented lines', () => {
