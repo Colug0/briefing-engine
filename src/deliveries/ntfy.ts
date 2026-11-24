@@ -149,6 +149,9 @@ export function flushPending(ctx: Ctx): Promise<void> {
         ctx.log.debug(`ntfy: dropped "${p.msg.title}", it waited more than 24 h`)
         continue
       }
+      // A newer run may have gone out or taken this place while we sent the one before.
+      const current = pending(ctx)[key]
+      if (!current || current.at !== p.at) continue
       try {
         await publish(ctx, p.msg)
         retire(ctx, key, p.at)
