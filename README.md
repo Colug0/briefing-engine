@@ -8,7 +8,9 @@ runs, **what** it says and **where** it goes.
   e.g. a switch or a button. Every briefing can also be run by hand.
 - **Content:** position, batteries, tanks, sun, moon, tides, weather forecast,
   official marine weather bulletins (GMDSS, e.g. Fiji Met, MetService NZ, BoM),
-  tropical cyclones near the boat (GDACS), and the value of any Signal K path.
+  tropical cyclones near the boat (GDACS), a battery's night (state of
+  charge, amp hours, lowest voltage) and each tank's use over the previous day
+  from the History API, and the value of any Signal K path.
   Each block is optional and configurable.
 - **Deliveries:** the plugin's own webapp, a Signal K notification
   "Briefing … ready", and ntfy push to a server on board (sent at once) and/or
@@ -41,6 +43,7 @@ Weather. Today: 23.9 to 28.8 °C, wind 15.0 kn from SE, gusts 21.0 kn, rain 2 mm
 | [@meri-imperiumi/signalk-internet](https://www.npmjs.com/package/@meri-imperiumi/signalk-internet) | `network.internet.state` for schedules that wait for a connection |
 | [signalk-derived-data](https://www.npmjs.com/package/signalk-derived-data) | sun and moon (`environment.sunlight.*`, `environment.moon.*`) |
 | [signalk-tides](https://www.npmjs.com/package/signalk-tides) | tides (`environment.tide.*`, and its `tides` resource for the tide curve) |
+| a History API provider, e.g. [signalk-questdb](https://www.npmjs.com/package/signalk-questdb) | battery overnight and tank use yesterday |
 | a weather provider plugin, e.g. [@signalk/open-meteo-provider](https://www.npmjs.com/package/@signalk/open-meteo-provider) | the weather forecast, through the Signal K weather API; the default provider answers. Open-Meteo's weather texts give each day its symbol |
 
 Without one of them, the matching block says it is not available and the rest

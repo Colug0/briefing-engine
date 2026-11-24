@@ -2,6 +2,7 @@ import {
   IconAlertTriangle,
   IconArrowUp,
   IconBatteryCharging,
+  IconMoonStars,
   IconCloud,
   IconCloudFog,
   IconCloudRain,
@@ -23,6 +24,7 @@ import type {
   BatteryData,
   BulletinData,
   MoonData,
+  OvernightData,
   PathData,
   PositionData,
   StormData,
@@ -33,7 +35,7 @@ import type {
   WeatherCondition
 } from '../../../src/contents/data'
 import type { Block } from '../api'
-import { BatteryGauge, MoonDisc, SunArc, TankGauge } from './graphics'
+import { BatteryGauge, MoonDisc, Sparkline, SunArc, TankGauge } from './graphics'
 import { TideCurve } from './TideCurve'
 
 function Row({ icon: I, label, children, severity }: { icon: Icon; label: string; children: ReactNode; severity?: string }) {
@@ -84,8 +86,27 @@ function Tanks({ d }: { d: TankData }) {
     <Row icon={IconDroplet} label="Tanks">
       <div className="tiles">
         {d.items.map((t) => (
-          <Tile key={t.id} graphic={<TankGauge level={t.level} kind={t.kind} />} title={join([t.name, t.levelText])} detail={t.volumeText} />
+          <Tile
+            key={t.id}
+            graphic={<TankGauge level={t.level} kind={t.kind} />}
+            title={join([t.name, t.levelText])}
+            detail={join([t.volumeText, t.usedYesterdayText && `used yesterday ${t.usedYesterdayText}`])}
+          />
         ))}
+      </div>
+    </Row>
+  )
+}
+
+function Overnight({ d }: { d: OvernightData }) {
+  return (
+    <Row icon={IconMoonStars} label={`${d.name} since ${d.fromText}`}>
+      <div className="tiles">
+        <Tile
+          graphic={<Sparkline values={d.soc} />}
+          title={d.startSocText && d.endSocText ? `${d.startSocText} → ${d.endSocText}` : (d.usedAhText ? `used ${d.usedAhText}` : '–')}
+          detail={join([d.usedAhText && `used ${d.usedAhText}`, d.chargedAhText && `charged ${d.chargedAhText}`, d.minVoltageText && `lowest ${d.minVoltageText}`])}
+        />
       </div>
     </Row>
   )
@@ -246,6 +267,7 @@ const VIEWABLE: Record<string, (d: unknown) => boolean> = {
   path: (d) => has(d, 'text') && has(d, 'label'),
   battery: (d) => has(d, 'items', true),
   tanks: (d) => has(d, 'items', true),
+  overnight: (d) => has(d, 'soc', true) && has(d, 'name'),
   sun: (d) => has(d, 'now'),
   moon: (d) => has(d, 'southern'),
   tides: (d) => has(d, 'points', true),
@@ -299,6 +321,9 @@ export function Blocks({ blocks }: { blocks: Block[] }) {
         return
       case 'tanks':
         out.push(<Tanks key={key} d={b.data as TankData} />)
+        return
+      case 'overnight':
+        out.push(<Overnight key={key} d={b.data as OvernightData} />)
         return
       case 'sun':
       case 'moon':
