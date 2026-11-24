@@ -69,6 +69,18 @@ export function paragraphs(text: string): string[] {
   return out.filter(Boolean)
 }
 
+/**
+ * When a bulletin was issued, in the bulletin's own words. The GTS form
+ * "NOV 240800 UTC" wins: some services repeat the heading around it.
+ */
+export function issuedAt(text: string): string | undefined {
+  const flat = text.replace(/\s+/g, ' ')
+  const gts = flat.match(/\bissued\b[^.]*?\b([A-Z]{3}\s+\d{6}\s*UTC)\b/i)?.[1]
+  if (gts) return gts
+  const line = flat.match(/\b(?:issued|émis)\b[^.]*?(\d{1,2}\s*\w{3,9}\s*\d{4}[^.]*?UTC|\d{4}\s*UTC[^.]*)/i)?.[1]
+  return line?.trim()
+}
+
 export interface ParsedBulletin {
   issued?: string
   warnings: string[]
@@ -83,8 +95,7 @@ export interface ParsedBulletin {
  */
 export function parseBulletin(text: string, vessel: Position | undefined, radiusNm: number): ParsedBulletin {
   const paras = paragraphs(text)
-  const issuedLine = paras.find((p) => /\bissued\b|\bémis\b|\bdu \d/i.test(p))
-  const issued = issuedLine?.match(/(?:issued|émis)[^.]*?(\d{1,2}\s*\w{3}[^.]*?UTC|\w{3}\s*\d{6}\s*UTC|\d{4}\s*UTC[^.]*)/i)?.[1]
+  const issued = issuedAt(text)
   const warnings: string[] = []
   const systems: BulletinSystem[] = []
   let severeNearby = false
