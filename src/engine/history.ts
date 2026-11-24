@@ -63,11 +63,21 @@ export function totalUse(xs: Array<number | null>, refill: number): number | und
   let filled = 0
   // Compare against the lowest value since the last fill, so a fill spread over buckets counts once.
   let low = ns[0]!
+  // Once a rise is a fill, follow it to its peak.
+  let filling = false
   for (let i = 1; i < ns.length; i++) {
     const v = ns[i]!
+    const prev = ns[i - 1]!
+    if (filling && v > prev) {
+      filled += v - prev
+      low = v
+      continue
+    }
+    filling = false
     if (v - low > refill) {
       filled += v - low
       low = v
+      filling = true
     } else low = Math.min(low, v)
   }
   return Math.max(0, ns[0]! - ns[ns.length - 1]! + filled)
