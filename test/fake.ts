@@ -1,5 +1,5 @@
 import { INTERNET_PATH, internetState, mayUseInternet } from '../src/engine/internet.js'
-import type { Ctx, WeatherApiLike } from '../src/engine/types.js'
+import type { Ctx, HistoryApiLike, WeatherApiLike } from '../src/engine/types.js'
 import { fallbackDisplay } from '../src/engine/units.js'
 import { formatDate, formatTime } from '../src/engine/time.js'
 
@@ -40,6 +40,7 @@ export function fakeCtx(
     weather?: WeatherApiLike
     resources?: Record<string, Record<string, unknown>>
     http?: (url: string, init?: RequestInit) => Promise<Response>
+    history?: HistoryApiLike
   } = {}
 ): FakeCtx {
   const map = new Map(Object.entries(values))
@@ -71,7 +72,7 @@ export function fakeCtx(
     utcOffsetMinutes: () => offset,
     now: () => clock.now,
     weather: () => opts.weather,
-    history: async () => undefined,
+    history: async () => opts.history,
     listResources: async (type) => opts.resources?.[type],
     internet: () => internetState(map.get(INTERNET_PATH)),
     async http(url, init) {

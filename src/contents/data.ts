@@ -47,10 +47,14 @@ export interface TankItem {
   level?: number
   levelText?: string
   volumeText?: string
+  /** What the tank went down by over the previous day. */
+  usedYesterdayText?: string
 }
 
 export interface TankData {
   items: TankItem[]
+  /** Why yesterday's use is missing, when it was asked for. */
+  note?: string
 }
 
 export interface SunData {
@@ -152,4 +156,17 @@ export interface StormItem {
 export interface StormData {
   radiusNm: number
   storms: StormItem[]
+}
+
+export interface OvernightData {
+  name: string
+  fromText: string
+  toText: string
+  startSocText?: string
+  endSocText?: string
+  usedAhText?: string
+  chargedAhText?: string
+  minVoltageText?: string
+  /** State of charge over the window (0–1, null where unknown), for a small curve. */
+  soc: Array<number | null>
 }
