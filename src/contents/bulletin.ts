@@ -166,6 +166,33 @@ export function findWarnings(paras: string[]): { warnings: string[]; section: Se
   return { warnings, section }
 }
 
+/** Names follow these words in bulletins: "TROPICAL CYCLONE XAVIER". */
+const NAMED_AFTER = /^(cyclone|storm|hurricane|typhoon|depression)$/i
+/** …unless the next word is the bulletin's own: "STORM WARNING", "DEPRESSION MOVING". */
+const NOT_A_NAME = /^(warnings?|force|forces|centre|center|moving|was|is|near|with|area|winds?|and|or|of|at|in)$/i
+
+/**
+ * A weather system for a push message: its first sentence, and in sentence
+ * case when the bulletin shouts. Codes with digits (TD02F, 241800) and UTC
+ * stay as they are, storm names keep a capital.
+ */
+export function shortSystem(text: string): string {
+  const first = (text.split(/(?<=\.)\s+/)[0] ?? text).replace(/\[/g, '(').replace(/\]/g, ')')
+  const letters = first.replace(/[^\p{L}]/gu, '')
+  if (!letters || letters.replace(/\p{Lu}/gu, '').length > letters.length / 5) return first
+  const words = first.split(/(\s+)/)
+  return words
+    .map((w, i) => {
+      if (/\d/.test(w)) return w.replace(/(\d)HPA\b/gi, '$1 hPa')
+      if (/^\(?UTC\)?[.,]?$/.test(w)) return w
+      const lower = w.toLowerCase()
+      const before = words[i - 2]?.replace(/[^\p{L}]/gu, '') ?? ''
+      const capital = i === 0 || (NAMED_AFTER.test(before) && !NOT_A_NAME.test(lower.replace(/[^\p{L}]/gu, '')))
+      return capital ? lower.replace(/\p{L}/u, (c) => c.toUpperCase()) : lower
+    })
+    .join('')
+}
+
 export function parseBulletin(text: string, vessel: Position | undefined, radiusNm: number): ParsedBulletin {
   const paras = paragraphs(text)
   const issued = issuedAt(text)
@@ -220,7 +247,7 @@ export const bulletinContent: ContentType<Config> = {
       summary: `${title}${parsed.issued ? ` · issued ${parsed.issued}` : ''}`,
       items: [
         ...(parsed.warnings.length ? parsed.warnings.map((w) => `⚠️ ${w}`) : ['No warnings']),
-        ...parsed.systems.map((s) => (s.distanceText ? `${s.distanceText} · ${s.text}` : s.text))
+        ...parsed.systems.map((s) => (s.distanceText ? `${s.distanceText} · ${shortSystem(s.text)}` : shortSystem(s.text)))
       ],
       data,
       severity: parsed.severity,
