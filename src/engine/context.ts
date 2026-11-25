@@ -2,7 +2,7 @@ import type { ServerAPI } from '@signalk/server-api'
 import type { Cache } from './cache.js'
 import { INTERNET_PATH, internetState, mayUseInternet } from './internet.js'
 import { formatDate, formatTime, offsetMinutes } from './time.js'
-import type { Ctx, HistoryApiLike, StateStore, WeatherApiLike } from './types.js'
+import type { Ctx, HistoryApiLike, SelfReader, StateStore, WeatherApiLike } from './types.js'
 import { fallbackDisplay, toDisplayValue } from './units.js'
 
 export const TIMEZONE_PATH = 'environment.time.timezoneOffset'
@@ -49,11 +49,10 @@ export function shipOffset(leaf: unknown, preferredSource?: string): { minutes: 
   return minutes === undefined ? undefined : { minutes, source: l.$source ?? 'unknown' }
 }
 
-export function createContext(app: ServerAPI, pluginId: string, state: StateStore, options: ContextOptions): Ctx {
-  const newer = app as unknown as NewerServer
+/** The vessel's own values and the keys below a path, straight from the server. */
+export function selfReader(app: Pick<ServerAPI, 'getSelfPath'>): SelfReader {
   const leafOf = (path: string): unknown => app.getSelfPath(path)
-
-  const ctx: Ctx = {
+  return {
     getSelf(path) {
       const leaf = leafOf(path)
       if (leaf && typeof leaf === 'object' && 'value' in (leaf as object)) return (leaf as Leaf).value
@@ -63,7 +62,17 @@ export function createContext(app: ServerAPI, pluginId: string, state: StateStor
       const node = leafOf(path)
       if (!node || typeof node !== 'object') return []
       return Object.keys(node).filter((k) => !LEAF_KEYS.has(k))
-    },
+    }
+  }
+}
+
+export function createContext(app: ServerAPI, pluginId: string, state: StateStore, options: ContextOptions): Ctx {
+  const newer = app as unknown as NewerServer
+  const reader = selfReader(app)
+
+  const ctx: Ctx = {
+    getSelf: reader.getSelf,
+    childKeys: reader.childKeys,
     display(path, value) {
       if (!Number.isFinite(value)) return undefined
       try {
@@ -75,7 +84,7 @@ export function createContext(app: ServerAPI, pluginId: string, state: StateStor
       return fallbackDisplay(app.getMetadata(path)?.units, value)
     },
     utcOffsetMinutes() {
-      return shipOffset(leafOf(TIMEZONE_PATH), options.timezoneSource)?.minutes ?? 0
+      return shipOffset(app.getSelfPath(TIMEZONE_PATH), options.timezoneSource)?.minutes ?? 0
     },
     time: (iso) => formatTime(new Date(iso), ctx.utcOffsetMinutes()),
     date: (iso) => formatDate(new Date(iso), ctx.utcOffsetMinutes()),

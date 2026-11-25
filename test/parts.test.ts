@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RJSFSchema } from '@rjsf/utils'
-import { summarize } from '../web/src/parts.js'
+import { summarize, withChoices } from '../web/src/parts.js'
 
 describe('summary line of a part in the editor', () => {
   const schema: RJSFSchema = {
@@ -31,5 +31,35 @@ describe('summary line of a part in the editor', () => {
 
   it('leaves out groups that are off', () => {
     expect(summarize(schema, { local: { enabled: false, server: 'x', topic: 'y' } })).not.toContain('x y')
+  })
+})
+
+describe('choices from the server in the editor', () => {
+  const schema: RJSFSchema = {
+    type: 'object',
+    properties: {
+      batteries: { type: 'array', items: { type: 'string' }, default: [] },
+      battery: { type: 'string', default: 'house' }
+    }
+  }
+  const choices = {
+    batteries: [
+      { value: 'house', label: 'House' },
+      { value: '1', label: 'Starter' }
+    ],
+    battery: [{ value: '1', label: 'Starter' }]
+  }
+
+  it('offers the batteries as checkboxes and keeps saved ones the server does not report', () => {
+    const { schema: s, ui } = withChoices(schema, {}, choices, { batteries: ['old'] })
+    const props = s.properties as Record<string, RJSFSchema>
+    expect((props.batteries!.items as RJSFSchema).enum).toEqual(['house', '1', 'old'])
+    expect(ui.batteries).toEqual({ 'ui:widget': 'checkboxes', items: { 'ui:enumNames': ['House (house)', 'Starter (1)', 'old (no data now)'] } })
+    expect(props.battery!.enum).toEqual(['1', 'house'])
+    expect(ui.battery).toEqual({ 'ui:enumNames': ['Starter (1)', 'house (no data now)'] })
+  })
+
+  it('leaves a field as it is when there is nothing to choose', () => {
+    expect(withChoices(schema, {}, { batteries: [], battery: [] }, { batteries: ['house'] }).schema).toEqual(schema)
   })
 })

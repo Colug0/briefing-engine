@@ -17,6 +17,15 @@ export interface TypeInfo {
   title: string
   description: string
   schema: Record<string, unknown>
+  /** Gets its data from the internet. */
+  online?: boolean
+  /** What the server has now to choose from, by field (batteries, tanks). */
+  choices?: Record<string, Choice[]>
+}
+
+export interface Choice {
+  value: string
+  label: string
 }
 
 export interface Types {

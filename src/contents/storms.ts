@@ -74,6 +74,7 @@ export function stormsNear(json: unknown, vessel: Position, radiusNm: number, no
 
 export const stormContent: ContentType<Config> = {
   id: 'storms',
+  online: true,
   emoji: '🌀',
   title: 'Tropical cyclones (GDACS)',
   description: 'Tropical cyclones near the vessel from GDACS, with distance and direction.',

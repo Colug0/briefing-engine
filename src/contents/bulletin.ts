@@ -242,6 +242,7 @@ export function parseBulletin(text: string, vessel: Position | undefined, radius
 
 export const bulletinContent: ContentType<Config> = {
   id: 'bulletin',
+  online: true,
   emoji: '📢',
   title: 'Marine weather bulletin',
   description: 'Warnings and nearby weather systems from an official marine bulletin (GMDSS), fetched from NOAA TGFTP.',

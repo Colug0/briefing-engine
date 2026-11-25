@@ -1,6 +1,7 @@
 import type { Engine } from './engine/engine.js'
 import type { Registry } from './engine/registry.js'
 import type { Store } from './engine/store.js'
+import type { SelfReader } from './engine/types.js'
 
 interface Req {
   body?: unknown
@@ -30,6 +31,8 @@ export interface ApiDeps {
   running(): { store: Store; engine: Engine } | undefined
   registry: Registry
   status(): Record<string, unknown>
+  /** The vessel's data, for the editor's choices (batteries, tanks). */
+  self?: SelfReader
 }
 
 /**
@@ -64,7 +67,7 @@ export function registerApi(router: RouterLike, deps: ApiDeps): void {
     res.status(id ? 200 : 201).json(saved)
   }
 
-  ro.get('/api/types', (_req, res) => res.json(deps.registry.describe()))
+  ro.get('/api/types', (_req, res) => res.json(deps.registry.describe(deps.self)))
   ro.get('/api/status', guard((_req, res) => res.json(deps.status())))
   ro.get('/api/briefings', guard((_req, res, r) => res.json(r.store.listBriefings())))
   ro.get(

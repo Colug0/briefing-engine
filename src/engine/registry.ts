@@ -1,5 +1,5 @@
 import { Value } from 'typebox/value'
-import type { Briefing, ContentType, DeliveryType, Part, TriggerType } from './types.js'
+import type { Briefing, Choice, ContentType, DeliveryType, Part, SelfReader, TriggerType } from './types.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyConfig = any
@@ -19,11 +19,23 @@ export class Registry {
     for (const t of types.deliveries) add(this.deliveries, t)
   }
 
-  /** Every type with its config schema, for the webapp's editor. */
-  describe() {
-    const list = (m: Map<string, { id: string; title: string; description: string; schema: unknown }>) =>
-      [...m.values()].map(({ id, title, description, schema }) => ({ id, title, description, schema }))
-    return { triggers: list(this.triggers), contents: list(this.contents), deliveries: list(this.deliveries) }
+  /**
+   * Every type with its config schema, for the webapp's editor. With the
+   * server's data, content types also list what is there to choose from.
+   */
+  describe(self?: SelfReader) {
+    const list = (m: Map<string, { id: string; title: string; description: string; schema: unknown; online?: boolean }>) =>
+      [...m.values()].map(({ id, title, description, schema, online }) => ({ id, title, description, schema, ...(online ? { online } : {}) }))
+    const contents = [...this.contents.values()].map((t, i) => {
+      let choices: Record<string, Choice[]> | undefined
+      try {
+        choices = self && t.choices ? t.choices(self) : undefined
+      } catch {
+        // Choices only help the editor; without them it takes typed ids.
+      }
+      return { ...list(this.contents)[i]!, ...(choices ? { choices } : {}) }
+    })
+    return { triggers: list(this.triggers), contents, deliveries: list(this.deliveries) }
   }
 
   /**

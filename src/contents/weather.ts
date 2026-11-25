@@ -196,6 +196,7 @@ export function describeDay(day: WeatherDay): string {
 
 export const weatherContent: ContentType<Config> = {
   id: 'weather',
+  online: true,
   emoji: '⛅',
   title: 'Weather forecast',
   description: "Forecast for the vessel's position from the Signal K weather API (needs a weather provider plugin).",

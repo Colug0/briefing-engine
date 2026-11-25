@@ -17,7 +17,8 @@ import {
   IconTornado,
   type Icon
 } from '@tabler/icons-react'
-import type { RJSFSchema } from '@rjsf/utils'
+import type { RJSFSchema, UiSchema } from '@rjsf/utils'
+import type { Choice } from './api.js'
 
 export type Kind = 'triggers' | 'contents' | 'deliveries'
 
@@ -85,4 +86,39 @@ export function summarize(schema: RJSFSchema | undefined, config: Record<string,
     .map(([name, prop]) => show(prop, config[name] ?? prop.default, name))
     .filter((s): s is string => Boolean(s))
     .join(' · ')
+}
+
+/**
+ * Fields with choices from the server become checkboxes (several) or a
+ * select (one). Saved ids the server does not report now stay in the list,
+ * so saving does not drop them.
+ */
+export function withChoices(
+  schema: RJSFSchema,
+  ui: UiSchema,
+  choices: Record<string, Choice[]> | undefined,
+  config: Record<string, unknown>
+): { schema: RJSFSchema; ui: UiSchema } {
+  if (!choices) return { schema, ui }
+  const props = { ...((schema.properties ?? {}) as Props) }
+  const nextUi: UiSchema = { ...ui }
+  for (const [name, list] of Object.entries(choices)) {
+    const prop = props[name]
+    // Nothing reported now: keep the field open for typing any id.
+    if (!prop || !list.length) continue
+    const current = config[name] ?? prop.default
+    const saved = (Array.isArray(current) ? current : [current]).filter((v): v is string => typeof v === 'string' && v.trim() !== '')
+    const options = [...list, ...saved.filter((v) => !list.some((c) => c.value === v)).map((v) => ({ value: v, label: `${v} (no data now)` }))]
+    if (!options.length) continue
+    const values = options.map((o) => o.value)
+    const names = options.map((o) => (o.label === o.value || o.label.endsWith('(no data now)') ? o.label : `${o.label} (${o.value})`))
+    if (prop.type === 'array') {
+      props[name] = { ...prop, uniqueItems: true, items: { ...(prop.items as RJSFSchema), enum: values } }
+      nextUi[name] = { 'ui:widget': 'checkboxes', items: { 'ui:enumNames': names } }
+    } else {
+      props[name] = { ...prop, enum: values }
+      nextUi[name] = { 'ui:enumNames': names }
+    }
+  }
+  return { schema: { ...schema, properties: props }, ui: nextUi }
 }
