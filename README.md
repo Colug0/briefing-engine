@@ -25,6 +25,15 @@ graphics: battery and tank gauges (fuel, water and waste in their own
 colours), the sun's arc, the moon's phase as seen from your hemisphere, a
 tide curve for the day and a weather symbol with wind arrow per day.
 
+## Ideas and new blocks welcome
+
+The engine is built so that new blocks are easy to add, and I would be very
+glad about ideas and pull requests for new ones: another weather or warning
+source, a block for your engine hours, AIS, a watch plan, a delivery to
+another messenger, or anything else you would like in your briefing. Open an
+[issue](https://github.com/Colug0/briefing-engine/issues) with your idea, or
+a pull request; [Adding a type](#adding-a-type) shows how a block is made.
+
 Example:
 
 ```text
@@ -106,7 +115,18 @@ export const myContent: ContentType<{ path: string }> = {
 
 A content type can also return `data`; when the webapp has a view for the
 type (`web/src/blocks`), it draws that instead of the text. The data shapes
-are in `src/contents/data.ts`.
+are in `src/contents/data.ts`. For push messages a block can return a short
+`summary` line and its parts as `items`, and a type can set an `emoji`.
+
+Two optional fields help the editor: `online: true` marks a type that gets
+its data from the internet, and `choices(self)` offers what the server has to
+choose from for a setting, e.g. its batteries:
+
+```ts
+choices: (self) => ({
+  batteries: self.childKeys('electrical.batteries').map((id) => ({ value: id, label: id }))
+})
+```
 
 `ctx` gives access to Signal K values, display units, ship time, the weather
 and history APIs and persistent state. A content block that throws is shown as
