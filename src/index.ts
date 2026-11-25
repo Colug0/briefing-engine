@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import type { Plugin, ServerAPI } from '@signalk/server-api'
 import Type, { type Static } from 'typebox'
 import { registerApi, type RouterLike } from './api.js'
-import { createContext, shipOffset, TIMEZONE_PATH } from './engine/context.js'
+import { createContext, selfReader, shipOffset, TIMEZONE_PATH } from './engine/context.js'
 import { Cache } from './engine/cache.js'
 import { Engine } from './engine/engine.js'
 import { Store } from './engine/store.js'
@@ -98,7 +98,7 @@ export default function (app: ServerAPI): Plugin {
     },
 
     registerWithRouter(router) {
-      registerApi(router as unknown as RouterLike, { running: () => running, registry, status })
+      registerApi(router as unknown as RouterLike, { running: () => running, registry, status, self: selfReader(app) })
     }
   }
   return plugin

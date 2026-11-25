@@ -1,11 +1,21 @@
 import Form from '@rjsf/core'
 import type { RJSFSchema, UiSchema } from '@rjsf/utils'
 import validator from '@rjsf/validator-ajv8'
-import { IconArrowDown, IconArrowLeft, IconArrowUp, IconChevronDown, IconCopy, IconPlayerPlay, IconPlus, IconTrash } from '@tabler/icons-react'
+import {
+  IconArrowDown,
+  IconArrowLeft,
+  IconArrowUp,
+  IconChevronDown,
+  IconCopy,
+  IconPlayerPlay,
+  IconPlus,
+  IconTrash,
+  IconWorld
+} from '@tabler/icons-react'
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { api, type Briefing, type Part, type TypeInfo } from './api'
-import { iconFor, summarize, type Kind } from './parts'
+import { iconFor, summarize, withChoices, type Kind } from './parts'
 import { useStore } from './store'
 
 type Draft = Omit<Briefing, 'id'> & { id?: string }
@@ -45,6 +55,18 @@ const useDraft = create<DraftState>((set) => ({
   setOpen: (open) => set({ open }),
   setAdding: (adding) => set({ adding })
 }))
+
+const ONLINE = 'Needs an internet connection; uses saved data when offline.'
+
+/** A small globe for types that get their data from the internet. */
+function OnlineMark({ info }: { info?: TypeInfo }) {
+  if (!info?.online) return null
+  return (
+    <span className="online" title={ONLINE} aria-label={ONLINE} role="img">
+      <IconWorld size={14} aria-hidden />
+    </span>
+  )
+}
 
 const SECTIONS: Array<{ kind: Kind; title: string; one: string; hint: string }> = [
   { kind: 'triggers', title: 'When it runs', one: 'trigger', hint: 'Without a trigger the briefing only runs with “Test run” or “Run now”.' },
@@ -89,6 +111,7 @@ function PartCard({
 }) {
   const schema = info?.schema as RJSFSchema | undefined
   const hasFields = Boolean(schema && Object.keys((schema.properties as object) ?? {}).length)
+  const form = schema && open ? withChoices(schema, uiSchemaFor(schema), info?.choices, part.config) : undefined
   const Icon = iconFor(kind, part.type)
   const title = info?.title ?? `${part.type} (unknown)`
   const summary = summarize(schema, part.config) || info?.description
@@ -98,6 +121,7 @@ function PartCard({
         <button className="part-toggle" aria-expanded={open} onClick={onToggle}>
           <Icon className="part-icon" size={20} aria-hidden />
           <span className="part-title">{title}</span>
+          <OnlineMark info={info} />
           <span className="part-summary">{open ? '' : summary}</span>
           <IconChevronDown className="chevron" size={18} aria-hidden />
         </button>
@@ -121,8 +145,8 @@ function PartCard({
           {info && <p className="muted">{info.description}</p>}
           {schema && hasFields ? (
             <Form
-              schema={{ ...schema, title: undefined, description: undefined }}
-              uiSchema={uiSchemaFor(schema)}
+              schema={{ ...form!.schema, title: undefined, description: undefined }}
+              uiSchema={form!.ui}
               formData={part.config}
               validator={validator}
               liveValidate
@@ -289,6 +313,7 @@ export function Editor({ id }: { id?: string }) {
                     }}
                   >
                     <Icon size={18} aria-hidden /> {t.title}
+                    <OnlineMark info={t} />
                   </button>
                 )
               })}

@@ -122,13 +122,26 @@ export interface TriggerType<C = Record<string, unknown>> {
   start(ctx: Ctx, config: C, fire: (reason: FireReason) => void, key: string): () => void
 }
 
+/** What the editor offers for a field: the value stored and the name shown. */
+export interface Choice {
+  value: string
+  label: string
+}
+
+/** Reading the vessel's own data, without the rest of a run's context. */
+export type SelfReader = Pick<Ctx, 'getSelf' | 'childKeys'>
+
 export interface ContentType<C = Record<string, unknown>> {
   id: string
   title: string
   /** Leads the block's line in push messages. */
   emoji?: string
   description: string
+  /** Gets its data from the internet (and uses saved data when offline). Marked in the editor. */
+  online?: boolean
   schema: TSchema
+  /** Choices for config fields from what the server has now (batteries, tanks), keyed by field name. */
+  choices?(self: SelfReader): Record<string, Choice[]>
   fetch(ctx: Ctx, config: C): Promise<Block>
 }
 

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Type from 'typebox'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { shipOffset } from '../src/engine/context.js'
+import { selfReader, shipOffset } from '../src/engine/context.js'
 import { Engine } from '../src/engine/engine.js'
 import { Registry } from '../src/engine/registry.js'
 import { runBriefing } from '../src/engine/runner.js'
@@ -208,6 +208,7 @@ describe('registry', () => {
     expect(d.contents.map((t) => t.id)).toEqual(['position', 'battery', 'overnight', 'tanks', 'sun', 'moon', 'tides', 'weather', 'bulletin', 'storms', 'path'])
     expect(d.deliveries.map((t) => t.id)).toEqual(['webapp', 'notification', 'ntfy'])
     for (const t of [...d.triggers, ...d.contents, ...d.deliveries]) expect(t.schema).toMatchObject({ type: 'object' })
+    expect(d.contents.filter((t) => 'online' in t && t.online).map((t) => t.id)).toEqual(['weather', 'bulletin', 'storms'])
   })
 })
 
@@ -261,5 +262,31 @@ describe('moon drawing', () => {
     expect(waxingOf(undefined, 'First Quarter')).toBe(true)
     expect(waxingOf(undefined, 'Full Moon')).toBe(true)
     expect(waxingOf(undefined, undefined)).toBeUndefined()
+  })
+})
+
+describe('editor choices', () => {
+  it('lists batteries and tanks the server has, by name', () => {
+    const tree: Record<string, unknown> = {
+      'electrical.batteries': { house: {}, '1': {} },
+      'electrical.batteries.house.name': { value: 'House bank' },
+      tanks: { fuel: {}, freshWater: {} },
+      'tanks.fuel': { '0': {} },
+      'tanks.fuel.0.name': { value: 'Diesel' },
+      'tanks.freshWater': { '0': {}, aft: {} }
+    }
+    const self = selfReader({ getSelfPath: (p: string) => tree[p] } as never)
+    const d = createRegistry().describe(self)
+    const by = (id: string) => (d.contents.find((t) => t.id === id) as { choices?: Record<string, unknown> }).choices
+    expect(by('battery')).toEqual({ batteries: [{ value: '1', label: '1' }, { value: 'house', label: 'House bank' }] })
+    expect(by('overnight')).toEqual({ battery: [{ value: '1', label: '1' }, { value: 'house', label: 'House bank' }] })
+    expect(by('tanks')).toEqual({
+      tanks: [
+        { value: 'fuel.0', label: 'Diesel' },
+        { value: 'freshWater.0', label: 'Fresh water' },
+        { value: 'freshWater.aft', label: 'Fresh water aft' }
+      ]
+    })
+    expect(by('sun')).toBeUndefined()
   })
 })

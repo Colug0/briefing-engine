@@ -2,6 +2,7 @@ import Type, { type Static } from 'typebox'
 import { firstOf, historyValues, lastOf, minOf } from '../engine/history.js'
 import { localParts, parseClock } from '../engine/time.js'
 import type { ContentType, Ctx } from '../engine/types.js'
+import { batteryChoices } from './battery.js'
 import type { OvernightData } from './data.js'
 import { label, shownAs } from './helpers.js'
 
@@ -50,6 +51,7 @@ export const overnightContent: ContentType<Config> = {
   title: 'Battery overnight',
   description: 'State of charge, amp hours used and lowest voltage of a battery over the night, from the History API.',
   schema: Schema,
+  choices: (self) => ({ battery: batteryChoices(self) }),
   async fetch(ctx: Ctx, config) {
     const id = config.battery.trim().replace(/^(vessels\.self\.)?electrical\.batteries\./, '')
     const base = `electrical.batteries.${id}`

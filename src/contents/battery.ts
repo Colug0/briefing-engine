@@ -1,5 +1,5 @@
 import Type, { type Static } from 'typebox'
-import type { ContentType, Ctx } from '../engine/types.js'
+import type { Choice, ContentType, Ctx, SelfReader } from '../engine/types.js'
 import type { BatteryData, BatteryItem } from './data.js'
 import { isNum, joinParts, label, shown } from './helpers.js'
 
@@ -13,9 +13,14 @@ const BatterySchema = Type.Object({
   highPercent: Type.Integer({ title: 'Good from (%)', description: 'Shown in green from this state of charge.', default: 70, minimum: 0, maximum: 100 })
 })
 
-function nameOf(ctx: Ctx, base: string, id: string): string {
+function nameOf(ctx: SelfReader, base: string, id: string): string {
   const name = ctx.getSelf(`${base}.${id}.name`)
   return typeof name === 'string' && name.trim() ? name.trim() : label(id)
+}
+
+/** The batteries the server knows now, by name, for the editor. */
+export function batteryChoices(self: SelfReader): Choice[] {
+  return self.childKeys('electrical.batteries').map((id) => ({ value: id, label: nameOf(self, 'electrical.batteries', id) }))
 }
 
 const num = (v: unknown): number | undefined => (isNum(v) ? v : undefined)
@@ -26,6 +31,7 @@ export const batteryContent: ContentType<Static<typeof BatterySchema>> = {
   title: 'Batteries',
   description: 'State of charge, voltage, current and time remaining.',
   schema: BatterySchema,
+  choices: (self) => ({ batteries: batteryChoices(self) }),
   async fetch(ctx, config) {
     // Accept ids written with their full path too (electrical.batteries.house).
     const ids = config.batteries.length

@@ -1,7 +1,7 @@
 import Type, { type Static } from 'typebox'
 import { historyValues, totalUse } from '../engine/history.js'
 import { localParts } from '../engine/time.js'
-import type { ContentType, Ctx } from '../engine/types.js'
+import type { ContentType, Ctx, SelfReader } from '../engine/types.js'
 import type { TankData, TankItem, TankKind } from './data.js'
 import { isNum, label, shown, shownAs } from './helpers.js'
 
@@ -64,22 +64,32 @@ export function tankKind(type: string): TankKind {
   return 'other'
 }
 
+/** Every tank the server knows now, as type.id (fuel.0). */
+const tankIds = (self: SelfReader): string[] =>
+  self.childKeys('tanks').flatMap((type) => self.childKeys(`tanks.${type}`).map((id) => `${type}.${id}`))
+
+function tankName(self: SelfReader, id: string): string {
+  const [type = id, sub = ''] = id.split('.')
+  const named = self.getSelf(`tanks.${id}.name`)
+  return typeof named === 'string' && named.trim() ? named.trim() : `${label(type)}${sub && !/^0$/.test(sub) ? ` ${sub}` : ''}`
+}
+
 export const tankContent: ContentType<Static<typeof TankSchema>> = {
   id: 'tanks',
   emoji: '⛽',
   title: 'Tanks',
   description: 'Level and volume of your tanks, optionally with what was used yesterday.',
   schema: TankSchema,
+  choices: (self) => ({ tanks: tankIds(self).map((id) => ({ value: id, label: tankName(self, id) })) }),
   async fetch(ctx, config) {
     // Accept ids written with their full path too (tanks.fuel.main).
     const ids = config.tanks.length
       ? config.tanks.map((id) => id.trim().replace(/^(vessels\.self\.)?tanks\./, ''))
-      : ctx.childKeys('tanks').flatMap((type) => ctx.childKeys(`tanks.${type}`).map((id) => `${type}.${id}`))
+      : tankIds(ctx)
     const items: TankItem[] = ids.map((id) => {
       const t = `tanks.${id}`
-      const [type = id, sub = ''] = id.split('.')
-      const named = ctx.getSelf(`${t}.name`)
-      const name = typeof named === 'string' && named.trim() ? named.trim() : `${label(type)}${sub && !/^0$/.test(sub) ? ` ${sub}` : ''}`
+      const [type = id] = id.split('.')
+      const name = tankName(ctx, id)
       const level = ctx.getSelf(`${t}.currentLevel`)
       return {
         id,
