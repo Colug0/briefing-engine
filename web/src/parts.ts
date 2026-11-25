@@ -104,7 +104,8 @@ export function withChoices(
   const nextUi: UiSchema = { ...ui }
   for (const [name, list] of Object.entries(choices)) {
     const prop = props[name]
-    if (!prop) continue
+    // Nothing reported now: keep the field open for typing any id.
+    if (!prop || !list.length) continue
     const current = config[name] ?? prop.default
     const saved = (Array.isArray(current) ? current : [current]).filter((v): v is string => typeof v === 'string' && v.trim() !== '')
     const options = [...list, ...saved.filter((v) => !list.some((c) => c.value === v)).map((v) => ({ value: v, label: `${v} (no data now)` }))]

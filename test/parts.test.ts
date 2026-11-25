@@ -60,6 +60,6 @@ describe('choices from the server in the editor', () => {
   })
 
   it('leaves a field as it is when there is nothing to choose', () => {
-    expect(withChoices(schema, {}, { batteries: [] }, {}).schema).toEqual(schema)
+    expect(withChoices(schema, {}, { batteries: [], battery: [] }, { batteries: ['house'] }).schema).toEqual(schema)
   })
 })
