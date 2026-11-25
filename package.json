@@ -1,6 +1,6 @@
 {
   "name": "briefing-engine",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Build your own boat briefings for Signal K: triggers, content blocks from Signal K and the internet, and deliveries to a webapp, ntfy or speech",
   "type": "module",
   "main": "dist/index.js",
